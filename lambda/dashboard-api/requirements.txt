@@ -1,0 +1,3 @@
+# boto3 is pre-installed in the Lambda runtime — do not add it here
+pytest
+moto[dynamodb]

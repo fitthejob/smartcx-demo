@@ -1,0 +1,7 @@
+{
+  "Name": "MainIVRFlow",
+  "Description": "SmartCX Demo main IVR — order status (Press 1), support agent (Press 2), billing (Press 3)",
+  "Type": "CONTACT_FLOW",
+  "Status": "DRAFT",
+  "Content": "TODO: export from Connect console after Phase 4 flow design"
+}

@@ -1,0 +1,7 @@
+{
+  "Name": "AgentWhisper",
+  "Description": "Plays queue name to agent at answer time",
+  "Type": "AGENT_WHISPER",
+  "Status": "DRAFT",
+  "Content": "TODO: export from Connect console after Phase 4 flow design"
+}

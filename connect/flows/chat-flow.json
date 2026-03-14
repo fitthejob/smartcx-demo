@@ -1,0 +1,7 @@
+{
+  "Name": "ChatFlow",
+  "Description": "SmartCX Demo chat flow — mirrors IVR logic with chat-appropriate response blocks",
+  "Type": "CONTACT_FLOW",
+  "Status": "DRAFT",
+  "Content": "TODO: export from Connect console after Phase 4 flow design"
+}

@@ -1,0 +1,9 @@
+# TODO: expose after Phase 2 implementation
+output "order_lookup_arn"                      { value = "" }
+output "order_lookup_function_name"            { value = "" }
+output "contact_lens_handler_arn"              { value = "" }
+output "contact_lens_handler_function_name"    { value = "" }
+output "dashboard_api_arn"                     { value = "" }
+output "dashboard_api_function_name"           { value = "" }
+output "contact_lens_dlq_url"                  { value = "" }
+output "contact_lens_dlq_name"                 { value = "" }
