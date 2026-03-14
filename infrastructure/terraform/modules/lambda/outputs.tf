@@ -1,9 +1,31 @@
-# TODO: expose after Phase 2 implementation
-output "order_lookup_arn"                      { value = "" }
-output "order_lookup_function_name"            { value = "" }
-output "contact_lens_handler_arn"              { value = "" }
-output "contact_lens_handler_function_name"    { value = "" }
-output "dashboard_api_arn"                     { value = "" }
-output "dashboard_api_function_name"           { value = "" }
-output "contact_lens_dlq_url"                  { value = "" }
-output "contact_lens_dlq_name"                 { value = "" }
+output "order_lookup_arn" {
+  value = aws_lambda_function.order_lookup.arn
+}
+
+output "order_lookup_function_name" {
+  value = aws_lambda_function.order_lookup.function_name
+}
+
+output "contact_lens_handler_arn" {
+  value = aws_lambda_function.contact_lens_handler.arn
+}
+
+output "contact_lens_handler_function_name" {
+  value = aws_lambda_function.contact_lens_handler.function_name
+}
+
+output "dashboard_api_arn" {
+  value = aws_lambda_function.dashboard_api.arn
+}
+
+output "dashboard_api_function_name" {
+  value = aws_lambda_function.dashboard_api.function_name
+}
+
+output "contact_lens_dlq_url" {
+  value = aws_sqs_queue.contact_lens_dlq.url
+}
+
+output "contact_lens_dlq_name" {
+  value = aws_sqs_queue.contact_lens_dlq.name
+}
