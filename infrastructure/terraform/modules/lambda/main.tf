@@ -27,20 +27,20 @@ resource "aws_sqs_queue" "contact_lens_dlq" {
 
 data "archive_file" "order_lookup" {
   type        = "zip"
-  source_dir  = "${path.module}/../../../lambda/order-lookup"
-  output_path = "${path.module}/../../../lambda/order-lookup.zip"
+  source_dir  = "${var.lambda_root}/order-lookup"
+  output_path = "${var.lambda_root}/order-lookup.zip"
 }
 
 data "archive_file" "contact_lens_handler" {
   type        = "zip"
-  source_dir  = "${path.module}/../../../lambda/contact-lens-handler"
-  output_path = "${path.module}/../../../lambda/contact-lens-handler.zip"
+  source_dir  = "${var.lambda_root}/contact-lens-handler"
+  output_path = "${var.lambda_root}/contact-lens-handler.zip"
 }
 
 data "archive_file" "dashboard_api" {
   type        = "zip"
-  source_dir  = "${path.module}/../../../lambda/dashboard-api"
-  output_path = "${path.module}/../../../lambda/dashboard-api.zip"
+  source_dir  = "${var.lambda_root}/dashboard-api"
+  output_path = "${var.lambda_root}/dashboard-api.zip"
 }
 
 # ─────────────────────────────────────────────

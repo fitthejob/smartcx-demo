@@ -36,6 +36,7 @@ module "sns" {
 module "lambda" {
   source = "./modules/lambda"
 
+  lambda_root              = "${path.root}/../../lambda"
   project_name             = var.project_name
   aws_region               = var.aws_region
   orders_table_name        = module.dynamodb.orders_table_name

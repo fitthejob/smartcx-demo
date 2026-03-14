@@ -1,5 +1,8 @@
 variable "project_name"             {}
 variable "aws_region"               {}
+variable "lambda_root" {
+  description = "Absolute path to the lambda/ directory containing handler source"
+}
 variable "orders_table_name"        {}
 variable "orders_table_arn"         {}
 variable "orders_phone_index_name"  {}
