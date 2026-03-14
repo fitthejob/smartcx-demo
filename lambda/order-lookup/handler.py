@@ -34,7 +34,8 @@ def _format_date(date_str):
     try:
         from datetime import datetime
         dt = datetime.strptime(date_str, "%Y-%m-%d")
-        return dt.strftime("%B %-d, %Y")
+        # %-d is Linux-only; strip leading zero manually for cross-platform support
+        return dt.strftime("%B {day}, %Y").format(day=dt.day)
     except Exception:
         return date_str
 

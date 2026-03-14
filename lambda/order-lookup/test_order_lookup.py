@@ -2,19 +2,28 @@
 Unit tests for order-lookup Lambda.
 Uses moto to mock DynamoDB — no real AWS calls made.
 """
+import importlib.util
 import json
 import os
-import pytest
+import sys
+from pathlib import Path
 
 import boto3
+import pytest
 from moto import mock_aws
 
-
+# Set env vars before loading the handler module
 TABLE_NAME = "test-orders"
 PHONE_INDEX = "customerPhone-index"
-
 os.environ["ORDERS_TABLE_NAME"] = TABLE_NAME
 os.environ["ORDERS_PHONE_INDEX_NAME"] = PHONE_INDEX
+
+# Load handler module from its explicit path so there is no ambiguity
+_handler_path = Path(__file__).parent / "handler.py"
+_spec = importlib.util.spec_from_file_location("order_lookup_handler", _handler_path)
+_mod = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_mod)
+handler = _mod.handler
 
 
 def _create_table(dynamodb):
@@ -63,7 +72,6 @@ def test_lookup_by_order_id_found():
     table = _create_table(dynamodb)
     _seed(table)
 
-    from handler import handler
     event = {
         "Details": {
             "ContactData": {"CustomerEndpoint": {"Address": "+16165550101"}},
@@ -84,7 +92,6 @@ def test_lookup_by_order_id_not_found():
     dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
     _create_table(dynamodb)
 
-    from handler import handler
     event = {
         "Details": {
             "ContactData": {"CustomerEndpoint": {"Address": "+16165550101"}},
@@ -101,7 +108,6 @@ def test_lookup_by_phone_returns_most_recent():
     table = _create_table(dynamodb)
     _seed(table)
 
-    from handler import handler
     event = {
         "Details": {
             "ContactData": {"CustomerEndpoint": {"Address": "+16165550101"}},
@@ -120,7 +126,6 @@ def test_lookup_by_phone_not_found():
     dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
     _create_table(dynamodb)
 
-    from handler import handler
     event = {
         "Details": {
             "ContactData": {"CustomerEndpoint": {"Address": "+16165559999"}},
@@ -137,7 +142,6 @@ def test_never_raises_on_exception():
     dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
     # Intentionally do NOT create the table
 
-    from handler import handler
     event = {
         "Details": {
             "ContactData": {"CustomerEndpoint": {"Address": "+16165550101"}},
@@ -154,7 +158,6 @@ def test_estimated_delivery_formatted_for_tts():
     table = _create_table(dynamodb)
     _seed(table)
 
-    from handler import handler
     event = {
         "Details": {
             "ContactData": {"CustomerEndpoint": {"Address": ""}},
