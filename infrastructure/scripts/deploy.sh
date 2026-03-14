@@ -1,12 +1,151 @@
 #!/usr/bin/env bash
 # deploy.sh
 # Full deploy: packages Lambda deps, applies Terraform, enables flow logs,
-# builds and deploys the React dashboard, optionally seeds DynamoDB, runs validation.
+# associates Lex v2 bot, builds and uploads the React dashboard,
+# optionally seeds DynamoDB, and runs post-deploy validation.
 #
 # Usage:
-#   ./infrastructure/scripts/deploy.sh [--seed] [--region us-east-1]
+#   ./infrastructure/scripts/deploy.sh [--seed] [--region REGION]
 #
-# TODO: implement in Phase 6
+# Flags:
+#   --seed      Also seed the DynamoDB orders table with demo data
+#   --region    AWS region (default: us-east-1)
+#
+# Prerequisites:
+#   - terraform.tfvars populated (including lex_bot_alias_arn)
+#   - AWS CLI configured with sufficient permissions
+#   - Python 3.12, Node.js 20+, Terraform >= 1.6 on PATH
+
 set -euo pipefail
 
-echo "TODO: implement deploy.sh in Phase 6"
+REGION="us-east-1"
+SEED=false
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+TF_DIR="${REPO_ROOT}/infrastructure/terraform"
+
+# ── Parse args ────────────────────────────────────────────────────────────────
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --seed)   SEED=true; shift ;;
+    --region) REGION="$2"; shift 2 ;;
+    *) echo "Unknown argument: $1"; exit 1 ;;
+  esac
+done
+
+echo "==> SmartCX Deploy (region: ${REGION})"
+
+# ── Step 1: Package Lambda dependencies ───────────────────────────────────────
+echo ""
+echo "==> [1/8] Packaging Lambda dependencies"
+for fn_dir in "${REPO_ROOT}"/lambda/*/; do
+  fn_name=$(basename "${fn_dir}")
+  req="${fn_dir}requirements.txt"
+  if [[ -f "${req}" ]]; then
+    echo "    Installing deps for ${fn_name}"
+    pip install -r "${req}" -t "${fn_dir}package/" --quiet --upgrade
+  else
+    echo "    No requirements.txt for ${fn_name} — skipping"
+  fi
+done
+
+# ── Step 2: Terraform init + apply ────────────────────────────────────────────
+echo ""
+echo "==> [2/8] Running terraform init + apply"
+cd "${TF_DIR}"
+terraform init -input=false
+terraform apply -auto-approve -input=false
+
+# ── Step 3: Read Terraform outputs ────────────────────────────────────────────
+echo ""
+echo "==> [3/8] Reading Terraform outputs"
+INSTANCE_ID=$(terraform output -raw connect_instance_id)
+LEX_ALIAS_ARN=$(terraform output -raw lex_bot_alias_arn)
+API_ENDPOINT=$(terraform output -raw api_endpoint)
+BUCKET_NAME=$(terraform output -raw bucket_name)
+DISTRIBUTION_ID=$(terraform output -raw distribution_id)
+ORDERS_TABLE=$(terraform output -raw orders_table_name)
+DLQ_URL=$(terraform output -raw contact_lens_dlq_url)
+DASHBOARD_URL=$(terraform output -raw dashboard_url)
+
+echo "    Connect instance: ${INSTANCE_ID}"
+echo "    API endpoint:     ${API_ENDPOINT}"
+echo "    Dashboard bucket: ${BUCKET_NAME}"
+
+# ── Step 4: Post-apply Connect configuration ──────────────────────────────────
+echo ""
+echo "==> [4/8] Enabling contact flow logs"
+aws connect update-instance-attribute \
+  --instance-id "${INSTANCE_ID}" \
+  --attribute-type CONTACT_FLOW_LOGS \
+  --value true \
+  --region "${REGION}"
+
+echo "==> [4/8] Associating Lex v2 bot with Connect"
+# aws_connect_bot_association only supports Lex v1 — v2 association done via CLI.
+# See infrastructure/terraform/modules/connect/main.tf for explanation.
+aws connect associate-lex-bot \
+  --instance-id "${INSTANCE_ID}" \
+  --lex-v2-bot "aliasArn=${LEX_ALIAS_ARN}" \
+  --region "${REGION}"
+
+# ── Step 5: Build dashboard ───────────────────────────────────────────────────
+echo ""
+echo "==> [5/8] Building React dashboard"
+cd "${REPO_ROOT}/dashboard"
+echo "VITE_API_BASE_URL=${API_ENDPOINT}" > .env
+npm install --silent
+npm run build
+
+# ── Step 6: Deploy dashboard to S3 + invalidate CloudFront ───────────────────
+echo ""
+echo "==> [6/8] Uploading dashboard to S3"
+aws s3 sync dist/ "s3://${BUCKET_NAME}" \
+  --delete \
+  --region "${REGION}" \
+  --cache-control "no-cache" \
+  --exclude ".DS_Store"
+
+echo "==> [6/8] Invalidating CloudFront cache"
+aws cloudfront create-invalidation \
+  --distribution-id "${DISTRIBUTION_ID}" \
+  --paths "/*" \
+  --output text --query 'Invalidation.Id'
+
+# ── Step 7: Optional DynamoDB seed ───────────────────────────────────────────
+if [[ "${SEED}" == "true" ]]; then
+  echo ""
+  echo "==> [7/8] Seeding DynamoDB orders table"
+  cd "${REPO_ROOT}"
+  python infrastructure/scripts/seed_dynamodb.py \
+    --table "${ORDERS_TABLE}" \
+    --region "${REGION}"
+else
+  echo ""
+  echo "==> [7/8] Skipping DynamoDB seed (pass --seed to enable)"
+fi
+
+# ── Step 8: Post-deploy validation ───────────────────────────────────────────
+echo ""
+echo "==> [8/8] Running post-deploy validation"
+cd "${REPO_ROOT}"
+python infrastructure/scripts/validate_connect.py \
+  --instance-id "${INSTANCE_ID}" \
+  --dlq-url "${DLQ_URL}" \
+  --region "${REGION}"
+
+# ── Summary ───────────────────────────────────────────────────────────────────
+echo ""
+echo "============================================================"
+echo "  SmartCX Deploy Complete"
+echo "============================================================"
+echo "  Dashboard: ${DASHBOARD_URL}"
+echo "  API:       ${API_ENDPOINT}"
+echo "  Connect:   https://${INSTANCE_ID}.my.connect.aws/ccp-v2/"
+echo ""
+echo "  Next manual steps:"
+echo "  1. Claim a phone number in the Connect console and"
+echo "     associate it with MainIVRFlow"
+echo "  2. Create demo-agent and billing-agent users"
+echo "     (see docs/setup-guide.md step 5)"
+echo "============================================================"
