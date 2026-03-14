@@ -56,12 +56,14 @@ module "lambda" {
 module "api_gateway" {
   source            = "./modules/api-gateway"
   project_name      = var.project_name
+  aws_region        = var.aws_region
   dashboard_api_arn = module.lambda.dashboard_api_arn
 }
 
 module "eventbridge" {
-  source                        = "./modules/eventbridge"
-  contact_lens_handler_arn      = module.lambda.contact_lens_handler_arn
+  source                             = "./modules/eventbridge"
+  project_name                       = var.project_name
+  contact_lens_handler_arn           = module.lambda.contact_lens_handler_arn
   contact_lens_handler_function_name = module.lambda.contact_lens_handler_function_name
 }
 

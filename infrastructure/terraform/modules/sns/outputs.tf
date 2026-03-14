@@ -1,2 +1,3 @@
-# TODO: expose after Phase 3 implementation
-output "topic_arn" { value = "" }
+output "topic_arn" {
+  value = aws_sns_topic.alerts.arn
+}
