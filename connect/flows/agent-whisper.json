@@ -1,7 +1,20 @@
 {
-  "Name": "AgentWhisper",
-  "Description": "Plays queue name to agent at answer time",
-  "Type": "AGENT_WHISPER",
-  "Status": "DRAFT",
-  "Content": "TODO: export from Connect console after Phase 4 flow design"
+  "Version": "2019-10-30",
+  "StartAction": "entry",
+  "Actions": [
+    {
+      "Identifier": "entry",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "SmartCX Demo. Queue: $.Attributes.queueName. Customer sentiment: $.Attributes.sentiment."
+      },
+      "Transitions": { "NextAction": "end-whisper", "Errors": [], "Conditions": [] }
+    },
+    {
+      "Identifier": "end-whisper",
+      "Type": "EndFlowExecution",
+      "Parameters": {},
+      "Transitions": {}
+    }
+  ]
 }

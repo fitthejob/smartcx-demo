@@ -13,3 +13,4 @@ variable "sns_topic_arn"            {}
 variable "sentiment_threshold"      { default = "-0.5" }
 variable "connect_instance_id"      {}
 variable "connect_instance_arn"     {}
+variable "recordings_bucket_name"   {}

@@ -61,7 +61,8 @@ def _lookup_by_phone(table, phone):
 
 def _build_response(order):
     """Build the flat string dict returned to Connect."""
-    first_name = order.get("customerName", "").split()[0] if order.get("customerName") else ""
+    parts = order.get("customerName", "").split()
+    first_name = parts[0] if parts else ""
     return {
         "orderFound": "true",
         "orderId": str(order.get("orderId", "")),

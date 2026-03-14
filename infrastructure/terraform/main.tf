@@ -51,6 +51,7 @@ module "lambda" {
   sentiment_threshold      = var.sentiment_threshold
   connect_instance_id      = module.connect.instance_id
   connect_instance_arn     = module.connect.instance_arn
+  recordings_bucket_name   = module.connect.recordings_bucket_name
 }
 
 module "api_gateway" {

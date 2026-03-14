@@ -1,7 +1,241 @@
 {
-  "Name": "MainIVRFlow",
-  "Description": "SmartCX Demo main IVR — order status (Press 1), support agent (Press 2), billing (Press 3)",
-  "Type": "CONTACT_FLOW",
-  "Status": "DRAFT",
-  "Content": "TODO: export from Connect console after Phase 4 flow design"
+  "Version": "2019-10-30",
+  "StartAction": "entry",
+  "Actions": [
+    {
+      "Identifier": "entry",
+      "Type": "SetLoggingBehavior",
+      "Parameters": { "LoggingBehavior": "Enable" },
+      "Transitions": { "NextAction": "set-recording", "Errors": [], "Conditions": [] }
+    },
+    {
+      "Identifier": "set-recording",
+      "Type": "SetRecordingAndAnalyticsBehavior",
+      "Parameters": {
+        "RecordingBehavior": {
+          "RecordedParticipants": ["Agent", "Customer"]
+        },
+        "AnalyticsBehavior": {
+          "Enabled": "True",
+          "AnalyticsLanguage": "en-US",
+          "AnalyticsMode": "PostContact",
+          "AnalyticsConfiguration": {
+            "ContactLensConfiguration": {
+              "RealTimeConfiguration": { "TimestampRange": {} },
+              "PostContactConfiguration": { "SummarizationConfiguration": { "PostContactSummarizationEnabled": "False" } }
+            }
+          }
+        }
+      },
+      "Transitions": { "NextAction": "check-hours", "Errors": [], "Conditions": [] }
+    },
+    {
+      "Identifier": "check-hours",
+      "Type": "CheckHoursOfOperation",
+      "Parameters": { "HoursOfOperationId": "$.Queue.HoursOfOperation" },
+      "Transitions": {
+        "NextAction": "closed-msg",
+        "Errors": [],
+        "Conditions": [
+          { "NextAction": "set-voice", "Condition": { "Operator": "Equals", "Operands": ["True"] } }
+        ]
+      }
+    },
+    {
+      "Identifier": "closed-msg",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Thank you for calling ShopFlow. We are currently closed. Our hours are Monday through Friday, 8 AM to 8 PM Eastern. Please call back during business hours. Goodbye."
+      },
+      "Transitions": { "NextAction": "disconnect-closed", "Errors": [], "Conditions": [] }
+    },
+    {
+      "Identifier": "disconnect-closed",
+      "Type": "DisconnectParticipant",
+      "Parameters": {},
+      "Transitions": {}
+    },
+    {
+      "Identifier": "set-voice",
+      "Type": "UpdateContactTextToSpeechVoice",
+      "Parameters": { "VoiceId": "Joanna" },
+      "Transitions": { "NextAction": "play-greeting", "Errors": [], "Conditions": [] }
+    },
+    {
+      "Identifier": "play-greeting",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Thank you for calling ShopFlow support. For order status, press 1 or say order status. To speak with a support agent, press 2. For billing, press 3. To repeat these options, press 9."
+      },
+      "Transitions": { "NextAction": "get-input", "Errors": [], "Conditions": [] }
+    },
+    {
+      "Identifier": "get-input",
+      "Type": "GetParticipantInput",
+      "Parameters": {
+        "Text": "",
+        "DTMFConfiguration": {
+          "DisableCancelKey": "False",
+          "DTMFTerminatorKey": "#",
+          "InputTimeLimitSeconds": "5"
+        },
+        "LexV2Bot": {
+          "AliasArn": "$.LexV2BotAliasArn"
+        },
+        "MaxDigits": "1",
+        "BotAliasArn": "$.LexV2BotAliasArn",
+        "MaxRetries": "2"
+      },
+      "Transitions": {
+        "NextAction": "no-match",
+        "Errors": [
+          { "NextAction": "no-match", "ErrorType": "NoMatchingError" },
+          { "NextAction": "no-match", "ErrorType": "InputTimeLimitExceeded" }
+        ],
+        "Conditions": [
+          { "NextAction": "invoke-order-lookup", "Condition": { "Operator": "Equals", "Operands": ["1"] } },
+          { "NextAction": "invoke-order-lookup", "Condition": { "Operator": "Equals", "Operands": ["Pressed 1"] } },
+          { "NextAction": "invoke-order-lookup", "Condition": { "Operator": "Equals", "Operands": ["CheckOrderStatus"] } },
+          { "NextAction": "transfer-support", "Condition": { "Operator": "Equals", "Operands": ["2"] } },
+          { "NextAction": "transfer-support", "Condition": { "Operator": "Equals", "Operands": ["Pressed 2"] } },
+          { "NextAction": "check-billing-hours", "Condition": { "Operator": "Equals", "Operands": ["3"] } },
+          { "NextAction": "check-billing-hours", "Condition": { "Operator": "Equals", "Operands": ["Pressed 3"] } },
+          { "NextAction": "play-greeting", "Condition": { "Operator": "Equals", "Operands": ["9"] } },
+          { "NextAction": "play-greeting", "Condition": { "Operator": "Equals", "Operands": ["Pressed 9"] } },
+          { "NextAction": "cancel-to-agent", "Condition": { "Operator": "Equals", "Operands": ["CancelOrder"] } }
+        ]
+      }
+    },
+    {
+      "Identifier": "invoke-order-lookup",
+      "Type": "InvokeLambdaFunction",
+      "Parameters": {
+        "LambdaFunctionARN": "$.Queue.ARN",
+        "InvocationTimeLimitSeconds": "8",
+        "LambdaInvocationAttributes": {
+          "phone": "$.CustomerEndpoint.Address"
+        }
+      },
+      "Transitions": {
+        "NextAction": "order-not-found",
+        "Errors": [
+          { "NextAction": "lookup-error", "ErrorType": "NoMatchingError" },
+          { "NextAction": "lookup-error", "ErrorType": "TimeLimitExceeded" }
+        ],
+        "Conditions": [
+          { "NextAction": "order-found", "Condition": { "Operator": "Equals", "Operands": ["$.Attributes.orderFound", "true"] } }
+        ]
+      }
+    },
+    {
+      "Identifier": "order-found",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "I found your order. Your order $.Attributes.orderId is currently $.Attributes.status. $.Attributes.estimatedDelivery. Is there anything else I can help you with?"
+      },
+      "Transitions": { "NextAction": "disconnect-self-service", "Errors": [], "Conditions": [] }
+    },
+    {
+      "Identifier": "disconnect-self-service",
+      "Type": "DisconnectParticipant",
+      "Parameters": {},
+      "Transitions": {}
+    },
+    {
+      "Identifier": "order-not-found",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "I'm sorry, I couldn't find an order associated with your phone number. Let me connect you with a support agent who can help."
+      },
+      "Transitions": { "NextAction": "set-queue-support", "Errors": [], "Conditions": [] }
+    },
+    {
+      "Identifier": "lookup-error",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "I'm having trouble looking that up right now. Let me connect you with a support agent."
+      },
+      "Transitions": { "NextAction": "set-queue-support", "Errors": [], "Conditions": [] }
+    },
+    {
+      "Identifier": "check-billing-hours",
+      "Type": "CheckHoursOfOperation",
+      "Parameters": { "HoursOfOperationId": "$.Queue.HoursOfOperation" },
+      "Transitions": {
+        "NextAction": "billing-closed",
+        "Errors": [],
+        "Conditions": [
+          { "NextAction": "set-queue-billing", "Condition": { "Operator": "Equals", "Operands": ["True"] } }
+        ]
+      }
+    },
+    {
+      "Identifier": "billing-closed",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Billing is available Monday through Friday, 9 AM to 5 PM Eastern. Transferring you to support."
+      },
+      "Transitions": { "NextAction": "set-queue-support", "Errors": [], "Conditions": [] }
+    },
+    {
+      "Identifier": "set-queue-billing",
+      "Type": "UpdateContactAttributes",
+      "Parameters": {
+        "Attributes": {
+          "queueName": "BillingQueue",
+          "sentiment": "unknown"
+        }
+      },
+      "Transitions": { "NextAction": "play-billing-transfer", "Errors": [], "Conditions": [] }
+    },
+    {
+      "Identifier": "play-billing-transfer",
+      "Type": "MessageParticipant",
+      "Parameters": { "Text": "Connecting you to billing now." },
+      "Transitions": { "NextAction": "transfer-billing", "Errors": [], "Conditions": [] }
+    },
+    {
+      "Identifier": "transfer-billing",
+      "Type": "TransferContactToQueue",
+      "Parameters": { "QueueId": "$.Queue.ARN" },
+      "Transitions": {
+        "NextAction": "set-queue-support",
+        "Errors": [{ "NextAction": "set-queue-support", "ErrorType": "NoMatchingError" }],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "cancel-to-agent",
+      "Type": "MessageParticipant",
+      "Parameters": { "Text": "For cancellations, let me connect you with an agent." },
+      "Transitions": { "NextAction": "set-queue-support", "Errors": [], "Conditions": [] }
+    },
+    {
+      "Identifier": "no-match",
+      "Type": "MessageParticipant",
+      "Parameters": { "Text": "I didn't catch that. Let me connect you with an agent now." },
+      "Transitions": { "NextAction": "set-queue-support", "Errors": [], "Conditions": [] }
+    },
+    {
+      "Identifier": "set-queue-support",
+      "Type": "UpdateContactAttributes",
+      "Parameters": {
+        "Attributes": {
+          "queueName": "SupportQueue",
+          "sentiment": "unknown"
+        }
+      },
+      "Transitions": { "NextAction": "transfer-support", "Errors": [], "Conditions": [] }
+    },
+    {
+      "Identifier": "transfer-support",
+      "Type": "TransferContactToQueue",
+      "Parameters": { "QueueId": "$.Queue.ARN" },
+      "Transitions": {
+        "NextAction": "disconnect-closed",
+        "Errors": [{ "NextAction": "disconnect-closed", "ErrorType": "NoMatchingError" }],
+        "Conditions": []
+      }
+    }
+  ]
 }

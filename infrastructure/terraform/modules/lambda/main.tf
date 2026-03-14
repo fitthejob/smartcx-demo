@@ -230,7 +230,7 @@ resource "aws_lambda_function" "contact_lens_handler" {
       FLAGGED_TABLE_NAME     = var.flagged_table_name
       SNS_ALERT_TOPIC_ARN    = var.sns_topic_arn
       SENTIMENT_THRESHOLD    = var.sentiment_threshold
-      RECORDINGS_BUCKET_NAME = ""  # populated after connect module creates bucket
+      RECORDINGS_BUCKET_NAME = var.recordings_bucket_name
     }
   }
 
