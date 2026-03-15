@@ -1,241 +1,209 @@
 {
   "Version": "2019-10-30",
-  "StartAction": "entry",
+  "StartAction": "1af5ae2d-582a-467f-a468-ad63cf527708",
+  "Metadata": {
+    "entryPointPosition": { "x": 20, "y": 20 },
+    "ActionMetadata": {
+      "1af5ae2d-582a-467f-a468-ad63cf527708": { "position": { "x": 20,   "y": 20  } },
+      "2d39c30c-de55-4d42-9234-4c808f7635b9": { "position": { "x": 460,  "y": 20  } },
+      "66926f61-6c1f-4cf5-ac51-508086a04b80": { "position": { "x": 680,  "y": 20  } },
+      "5f25496a-78a9-4e49-b00b-daa7fce024be": { "position": { "x": 900,  "y": 20  } },
+      "431f13a9-61da-431b-b2e1-08761e96cdcc": { "position": { "x": 1120, "y": 20  } },
+      "f6d9628c-32a2-48d2-af2a-6dd2e74108e0": { "position": { "x": 900,  "y": 200 } },
+      "79501808-1cd8-4fe3-8eb0-9c515ec019d1": { "position": { "x": 460,  "y": 200 } },
+      "b26bd424-89d0-4291-a7a3-7c30e2bb512a": { "position": { "x": 680,  "y": 200 } },
+      "386ace25-3482-4d11-a368-18aa6d98cb29": { "position": { "x": 240,  "y": 400 } },
+      "1c48a3fa-d0ec-4eb3-8853-00a97ea2c033": { "position": { "x": 460,  "y": 400 } },
+      "72b30746-f13b-457b-96c0-5839ca1b24c8": { "position": { "x": 680,  "y": 400 } },
+      "a89475c3-6e07-4b21-ad10-aafd9a25d47a": { "position": { "x": 240,  "y": 200 } },
+      "35833323-0078-4449-a513-85aa323a7c34": { "position": { "x": 1340, "y": 20  } }
+    },
+    "Annotations": []
+  },
   "Actions": [
     {
-      "Identifier": "entry",
-      "Type": "SetLoggingBehavior",
-      "Parameters": { "LoggingBehavior": "Enable" },
-      "Transitions": { "NextAction": "set-recording", "Errors": [], "Conditions": [] }
-    },
-    {
-      "Identifier": "set-recording",
-      "Type": "SetRecordingAndAnalyticsBehavior",
+      "Identifier": "1af5ae2d-582a-467f-a468-ad63cf527708",
+      "Type": "MessageParticipant",
       "Parameters": {
-        "RecordingBehavior": {
-          "RecordedParticipants": ["Agent", "Customer"]
-        },
-        "AnalyticsBehavior": {
-          "Enabled": "True",
-          "AnalyticsLanguage": "en-US",
-          "AnalyticsMode": "PostContact",
-          "AnalyticsConfiguration": {
-            "ContactLensConfiguration": {
-              "RealTimeConfiguration": { "TimestampRange": {} },
-              "PostContactConfiguration": { "SummarizationConfiguration": { "PostContactSummarizationEnabled": "False" } }
-            }
-          }
-        }
+        "Text": "Thank you for calling ShopFlow support. For order status, press 1. To speak with a support agent, press 2. For billing, press 3. To repeat these options, press 9."
       },
-      "Transitions": { "NextAction": "check-hours", "Errors": [], "Conditions": [] }
-    },
-    {
-      "Identifier": "check-hours",
-      "Type": "CheckHoursOfOperation",
-      "Parameters": { "HoursOfOperationId": "$.Queue.HoursOfOperation" },
       "Transitions": {
-        "NextAction": "closed-msg",
-        "Errors": [],
-        "Conditions": [
-          { "NextAction": "set-voice", "Condition": { "Operator": "Equals", "Operands": ["True"] } }
-        ]
+        "NextAction": "2d39c30c-de55-4d42-9234-4c808f7635b9",
+        "Errors": [
+          { "NextAction": "2d39c30c-de55-4d42-9234-4c808f7635b9", "ErrorType": "NoMatchingError" }
+        ],
+        "Conditions": []
       }
     },
     {
-      "Identifier": "closed-msg",
-      "Type": "MessageParticipant",
-      "Parameters": {
-        "Text": "Thank you for calling ShopFlow. We are currently closed. Our hours are Monday through Friday, 8 AM to 8 PM Eastern. Please call back during business hours. Goodbye."
-      },
-      "Transitions": { "NextAction": "disconnect-closed", "Errors": [], "Conditions": [] }
-    },
-    {
-      "Identifier": "disconnect-closed",
-      "Type": "DisconnectParticipant",
-      "Parameters": {},
-      "Transitions": {}
-    },
-    {
-      "Identifier": "set-voice",
-      "Type": "UpdateContactTextToSpeechVoice",
-      "Parameters": { "VoiceId": "Joanna" },
-      "Transitions": { "NextAction": "play-greeting", "Errors": [], "Conditions": [] }
-    },
-    {
-      "Identifier": "play-greeting",
-      "Type": "MessageParticipant",
-      "Parameters": {
-        "Text": "Thank you for calling ShopFlow support. For order status, press 1 or say order status. To speak with a support agent, press 2. For billing, press 3. To repeat these options, press 9."
-      },
-      "Transitions": { "NextAction": "get-input", "Errors": [], "Conditions": [] }
-    },
-    {
-      "Identifier": "get-input",
+      "Identifier": "2d39c30c-de55-4d42-9234-4c808f7635b9",
       "Type": "GetParticipantInput",
       "Parameters": {
-        "Text": "",
-        "DTMFConfiguration": {
-          "DisableCancelKey": "False",
-          "DTMFTerminatorKey": "#",
-          "InputTimeLimitSeconds": "5"
-        },
-        "LexV2Bot": {
-          "AliasArn": "$.LexV2BotAliasArn"
-        },
-        "MaxDigits": "1",
-        "BotAliasArn": "$.LexV2BotAliasArn",
-        "MaxRetries": "2"
+        "Text": "For order status press 1, support press 2, billing press 3, or press 9 to repeat.",
+        "StoreInput": "False",
+        "InputTimeLimitSeconds": "5"
       },
       "Transitions": {
-        "NextAction": "no-match",
+        "NextAction": "a89475c3-6e07-4b21-ad10-aafd9a25d47a",
         "Errors": [
-          { "NextAction": "no-match", "ErrorType": "NoMatchingError" },
-          { "NextAction": "no-match", "ErrorType": "InputTimeLimitExceeded" }
+          { "NextAction": "a89475c3-6e07-4b21-ad10-aafd9a25d47a", "ErrorType": "NoMatchingError" },
+          { "NextAction": "a89475c3-6e07-4b21-ad10-aafd9a25d47a", "ErrorType": "NoMatchingCondition" },
+          { "NextAction": "a89475c3-6e07-4b21-ad10-aafd9a25d47a", "ErrorType": "InputTimeLimitExceeded" }
         ],
         "Conditions": [
-          { "NextAction": "invoke-order-lookup", "Condition": { "Operator": "Equals", "Operands": ["1"] } },
-          { "NextAction": "invoke-order-lookup", "Condition": { "Operator": "Equals", "Operands": ["Pressed 1"] } },
-          { "NextAction": "invoke-order-lookup", "Condition": { "Operator": "Equals", "Operands": ["CheckOrderStatus"] } },
-          { "NextAction": "transfer-support", "Condition": { "Operator": "Equals", "Operands": ["2"] } },
-          { "NextAction": "transfer-support", "Condition": { "Operator": "Equals", "Operands": ["Pressed 2"] } },
-          { "NextAction": "check-billing-hours", "Condition": { "Operator": "Equals", "Operands": ["3"] } },
-          { "NextAction": "check-billing-hours", "Condition": { "Operator": "Equals", "Operands": ["Pressed 3"] } },
-          { "NextAction": "play-greeting", "Condition": { "Operator": "Equals", "Operands": ["9"] } },
-          { "NextAction": "play-greeting", "Condition": { "Operator": "Equals", "Operands": ["Pressed 9"] } },
-          { "NextAction": "cancel-to-agent", "Condition": { "Operator": "Equals", "Operands": ["CancelOrder"] } }
+          { "NextAction": "66926f61-6c1f-4cf5-ac51-508086a04b80", "Condition": { "Operator": "Equals", "Operands": ["1"] } },
+          { "NextAction": "79501808-1cd8-4fe3-8eb0-9c515ec019d1", "Condition": { "Operator": "Equals", "Operands": ["2"] } },
+          { "NextAction": "386ace25-3482-4d11-a368-18aa6d98cb29", "Condition": { "Operator": "Equals", "Operands": ["3"] } },
+          { "NextAction": "1af5ae2d-582a-467f-a468-ad63cf527708", "Condition": { "Operator": "Equals", "Operands": ["9"] } }
         ]
       }
     },
     {
-      "Identifier": "invoke-order-lookup",
+      "Identifier": "66926f61-6c1f-4cf5-ac51-508086a04b80",
       "Type": "InvokeLambdaFunction",
       "Parameters": {
-        "LambdaFunctionARN": "$.Queue.ARN",
-        "InvocationTimeLimitSeconds": "8",
-        "LambdaInvocationAttributes": {
-          "phone": "$.CustomerEndpoint.Address"
-        }
+        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:205500199161:function:smartcx-demo-order-lookup",
+        "InvocationTimeLimitSeconds": "8"
       },
       "Transitions": {
-        "NextAction": "order-not-found",
+        "NextAction": "5f25496a-78a9-4e49-b00b-daa7fce024be",
         "Errors": [
-          { "NextAction": "lookup-error", "ErrorType": "NoMatchingError" },
-          { "NextAction": "lookup-error", "ErrorType": "TimeLimitExceeded" }
+          { "NextAction": "f6d9628c-32a2-48d2-af2a-6dd2e74108e0", "ErrorType": "NoMatchingError" }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "5f25496a-78a9-4e49-b00b-daa7fce024be",
+      "Type": "Compare",
+      "Parameters": {
+        "ComparisonValue": "$.External.orderFound"
+      },
+      "Transitions": {
+        "NextAction": "f6d9628c-32a2-48d2-af2a-6dd2e74108e0",
+        "Errors": [
+          { "NextAction": "f6d9628c-32a2-48d2-af2a-6dd2e74108e0", "ErrorType": "NoMatchingCondition" }
         ],
         "Conditions": [
-          { "NextAction": "order-found", "Condition": { "Operator": "Equals", "Operands": ["$.Attributes.orderFound", "true"] } }
+          { "NextAction": "431f13a9-61da-431b-b2e1-08761e96cdcc", "Condition": { "Operator": "Equals", "Operands": ["true"] } }
         ]
       }
     },
     {
-      "Identifier": "order-found",
+      "Identifier": "431f13a9-61da-431b-b2e1-08761e96cdcc",
       "Type": "MessageParticipant",
       "Parameters": {
-        "Text": "I found your order. Your order $.Attributes.orderId is currently $.Attributes.status. $.Attributes.estimatedDelivery. Is there anything else I can help you with?"
+        "Text": "I found your order. Order $.External.orderId is currently $.External.status. Estimated delivery: $.External.estimatedDelivery. Thank you for calling ShopFlow."
       },
-      "Transitions": { "NextAction": "disconnect-self-service", "Errors": [], "Conditions": [] }
+      "Transitions": {
+        "NextAction": "35833323-0078-4449-a513-85aa323a7c34",
+        "Errors": [
+          { "NextAction": "35833323-0078-4449-a513-85aa323a7c34", "ErrorType": "NoMatchingError" }
+        ],
+        "Conditions": []
+      }
     },
     {
-      "Identifier": "disconnect-self-service",
+      "Identifier": "f6d9628c-32a2-48d2-af2a-6dd2e74108e0",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "I'm sorry, I couldn't find an order for your number. Let me connect you with a support agent."
+      },
+      "Transitions": {
+        "NextAction": "79501808-1cd8-4fe3-8eb0-9c515ec019d1",
+        "Errors": [
+          { "NextAction": "79501808-1cd8-4fe3-8eb0-9c515ec019d1", "ErrorType": "NoMatchingError" }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "a89475c3-6e07-4b21-ad10-aafd9a25d47a",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "I didn't catch that. Let me connect you with an agent."
+      },
+      "Transitions": {
+        "NextAction": "79501808-1cd8-4fe3-8eb0-9c515ec019d1",
+        "Errors": [
+          { "NextAction": "79501808-1cd8-4fe3-8eb0-9c515ec019d1", "ErrorType": "NoMatchingError" }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "79501808-1cd8-4fe3-8eb0-9c515ec019d1",
+      "Type": "UpdateContactTargetQueue",
+      "Parameters": {
+        "QueueId": "arn:aws:connect:us-east-1:205500199161:instance/e94b80d6-37f8-4257-930c-e8cbc6e76252/queue/ac71c826-608e-4d42-b6ec-f82d8e1b3f22"
+      },
+      "Transitions": {
+        "NextAction": "b26bd424-89d0-4291-a7a3-7c30e2bb512a",
+        "Errors": [
+          { "NextAction": "b26bd424-89d0-4291-a7a3-7c30e2bb512a", "ErrorType": "NoMatchingError" }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "b26bd424-89d0-4291-a7a3-7c30e2bb512a",
+      "Type": "TransferContactToQueue",
+      "Parameters": {},
+      "Transitions": {
+        "NextAction": "35833323-0078-4449-a513-85aa323a7c34",
+        "Errors": [
+          { "NextAction": "35833323-0078-4449-a513-85aa323a7c34", "ErrorType": "NoMatchingError" },
+          { "NextAction": "35833323-0078-4449-a513-85aa323a7c34", "ErrorType": "QueueAtCapacity" }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "386ace25-3482-4d11-a368-18aa6d98cb29",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Connecting you to billing now."
+      },
+      "Transitions": {
+        "NextAction": "1c48a3fa-d0ec-4eb3-8853-00a97ea2c033",
+        "Errors": [
+          { "NextAction": "1c48a3fa-d0ec-4eb3-8853-00a97ea2c033", "ErrorType": "NoMatchingError" }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "1c48a3fa-d0ec-4eb3-8853-00a97ea2c033",
+      "Type": "UpdateContactTargetQueue",
+      "Parameters": {
+        "QueueId": "arn:aws:connect:us-east-1:205500199161:instance/e94b80d6-37f8-4257-930c-e8cbc6e76252/queue/6b4846b0-ab90-4c02-a149-c8d487453a2b"
+      },
+      "Transitions": {
+        "NextAction": "72b30746-f13b-457b-96c0-5839ca1b24c8",
+        "Errors": [
+          { "NextAction": "72b30746-f13b-457b-96c0-5839ca1b24c8", "ErrorType": "NoMatchingError" }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "72b30746-f13b-457b-96c0-5839ca1b24c8",
+      "Type": "TransferContactToQueue",
+      "Parameters": {},
+      "Transitions": {
+        "NextAction": "35833323-0078-4449-a513-85aa323a7c34",
+        "Errors": [
+          { "NextAction": "35833323-0078-4449-a513-85aa323a7c34", "ErrorType": "NoMatchingError" },
+          { "NextAction": "35833323-0078-4449-a513-85aa323a7c34", "ErrorType": "QueueAtCapacity" }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "35833323-0078-4449-a513-85aa323a7c34",
       "Type": "DisconnectParticipant",
       "Parameters": {},
       "Transitions": {}
-    },
-    {
-      "Identifier": "order-not-found",
-      "Type": "MessageParticipant",
-      "Parameters": {
-        "Text": "I'm sorry, I couldn't find an order associated with your phone number. Let me connect you with a support agent who can help."
-      },
-      "Transitions": { "NextAction": "set-queue-support", "Errors": [], "Conditions": [] }
-    },
-    {
-      "Identifier": "lookup-error",
-      "Type": "MessageParticipant",
-      "Parameters": {
-        "Text": "I'm having trouble looking that up right now. Let me connect you with a support agent."
-      },
-      "Transitions": { "NextAction": "set-queue-support", "Errors": [], "Conditions": [] }
-    },
-    {
-      "Identifier": "check-billing-hours",
-      "Type": "CheckHoursOfOperation",
-      "Parameters": { "HoursOfOperationId": "$.Queue.HoursOfOperation" },
-      "Transitions": {
-        "NextAction": "billing-closed",
-        "Errors": [],
-        "Conditions": [
-          { "NextAction": "set-queue-billing", "Condition": { "Operator": "Equals", "Operands": ["True"] } }
-        ]
-      }
-    },
-    {
-      "Identifier": "billing-closed",
-      "Type": "MessageParticipant",
-      "Parameters": {
-        "Text": "Billing is available Monday through Friday, 9 AM to 5 PM Eastern. Transferring you to support."
-      },
-      "Transitions": { "NextAction": "set-queue-support", "Errors": [], "Conditions": [] }
-    },
-    {
-      "Identifier": "set-queue-billing",
-      "Type": "UpdateContactAttributes",
-      "Parameters": {
-        "Attributes": {
-          "queueName": "BillingQueue",
-          "sentiment": "unknown"
-        }
-      },
-      "Transitions": { "NextAction": "play-billing-transfer", "Errors": [], "Conditions": [] }
-    },
-    {
-      "Identifier": "play-billing-transfer",
-      "Type": "MessageParticipant",
-      "Parameters": { "Text": "Connecting you to billing now." },
-      "Transitions": { "NextAction": "transfer-billing", "Errors": [], "Conditions": [] }
-    },
-    {
-      "Identifier": "transfer-billing",
-      "Type": "TransferContactToQueue",
-      "Parameters": { "QueueId": "$.Queue.ARN" },
-      "Transitions": {
-        "NextAction": "set-queue-support",
-        "Errors": [{ "NextAction": "set-queue-support", "ErrorType": "NoMatchingError" }],
-        "Conditions": []
-      }
-    },
-    {
-      "Identifier": "cancel-to-agent",
-      "Type": "MessageParticipant",
-      "Parameters": { "Text": "For cancellations, let me connect you with an agent." },
-      "Transitions": { "NextAction": "set-queue-support", "Errors": [], "Conditions": [] }
-    },
-    {
-      "Identifier": "no-match",
-      "Type": "MessageParticipant",
-      "Parameters": { "Text": "I didn't catch that. Let me connect you with an agent now." },
-      "Transitions": { "NextAction": "set-queue-support", "Errors": [], "Conditions": [] }
-    },
-    {
-      "Identifier": "set-queue-support",
-      "Type": "UpdateContactAttributes",
-      "Parameters": {
-        "Attributes": {
-          "queueName": "SupportQueue",
-          "sentiment": "unknown"
-        }
-      },
-      "Transitions": { "NextAction": "transfer-support", "Errors": [], "Conditions": [] }
-    },
-    {
-      "Identifier": "transfer-support",
-      "Type": "TransferContactToQueue",
-      "Parameters": { "QueueId": "$.Queue.ARN" },
-      "Transitions": {
-        "NextAction": "disconnect-closed",
-        "Errors": [{ "NextAction": "disconnect-closed", "ErrorType": "NoMatchingError" }],
-        "Conditions": []
-      }
     }
   ]
 }

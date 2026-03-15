@@ -1,20 +1,42 @@
 {
   "Version": "2019-10-30",
-  "StartAction": "entry",
+  "StartAction": "8728ecda-9690-416f-8f88-ba73c0b06aec",
+  "Metadata": {
+    "entryPointPosition": { "x": 27.2, "y": 27.2 },
+    "ActionMetadata": {
+      "efe09e44-a242-4b1f-b802-9509606d2cf8": { "position": { "x": 397.6, "y": 49.6 } },
+      "8728ecda-9690-416f-8f88-ba73c0b06aec": { "position": { "x": 149.6, "y": 26.4 } }
+    },
+    "Annotations": [],
+    "name": "AgentWhisper",
+    "description": "",
+    "type": "contactFlow",
+    "status": "published",
+    "hash": {}
+  },
   "Actions": [
     {
-      "Identifier": "entry",
-      "Type": "MessageParticipant",
-      "Parameters": {
-        "Text": "SmartCX Demo. Queue: $.Attributes.queueName. Customer sentiment: $.Attributes.sentiment."
-      },
-      "Transitions": { "NextAction": "end-whisper", "Errors": [], "Conditions": [] }
+      "Parameters": {},
+      "Identifier": "efe09e44-a242-4b1f-b802-9509606d2cf8",
+      "Type": "EndFlowExecution",
+      "Transitions": {}
     },
     {
-      "Identifier": "end-whisper",
-      "Type": "EndFlowExecution",
-      "Parameters": {},
-      "Transitions": {}
+      "Parameters": {
+        "Text": "SmartCX Demo. Queue: $.Attributes.queueName."
+      },
+      "Identifier": "8728ecda-9690-416f-8f88-ba73c0b06aec",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "efe09e44-a242-4b1f-b802-9509606d2cf8",
+        "Errors": [
+          {
+            "NextAction": "efe09e44-a242-4b1f-b802-9509606d2cf8",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
     }
   ]
 }

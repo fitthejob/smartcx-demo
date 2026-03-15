@@ -54,28 +54,39 @@ else
   echo "    Connect instance: ${INSTANCE_ID}"
 fi
 
-# ── Step 2: Disassociate phone numbers ────────────────────────────────────────
+# ── Step 2: Release phone numbers ─────────────────────────────────────────────
 if [[ -n "${INSTANCE_ID}" ]]; then
   echo ""
-  echo "==> [2/4] Disassociating phone numbers from Connect instance"
+  echo "==> [2/4] Releasing phone numbers from Connect instance"
 
-  PHONE_NUMBER_IDS=$(aws connect list-phone-numbers-v2 \
+  # list-phone-numbers-v2 returns all numbers; filter to this instance via target-arn
+  INSTANCE_ARN=$(aws connect describe-instance \
     --instance-id "${INSTANCE_ID}" \
     --region "${REGION}" \
-    --query 'ListedPhoneNumbers[].PhoneNumberId' \
+    --query 'Instance.Arn' \
     --output text 2>/dev/null || echo "")
 
-  if [[ -z "${PHONE_NUMBER_IDS}" ]]; then
-    echo "    No phone numbers associated — skipping"
+  PHONE_NUMBER_IDS=""
+  if [[ -n "${INSTANCE_ARN}" ]]; then
+    PHONE_NUMBER_IDS=$(aws connect list-phone-numbers-v2 \
+      --target-arn "${INSTANCE_ARN}" \
+      --region "${REGION}" \
+      --query 'ListedPhoneNumbers[].PhoneNumberId' \
+      --output text 2>/dev/null || echo "")
+  fi
+
+  # Guard against AWS CLI returning the literal string "None"
+  if [[ -z "${PHONE_NUMBER_IDS}" || "${PHONE_NUMBER_IDS}" == "None" ]]; then
+    echo "    No phone numbers claimed — skipping"
   else
     for phone_id in ${PHONE_NUMBER_IDS}; do
-      echo "    Disassociating phone number: ${phone_id}"
-      aws connect disassociate-phone-number \
+      echo "    Releasing phone number: ${phone_id}"
+      aws connect release-phone-number \
         --phone-number-id "${phone_id}" \
         --region "${REGION}"
 
-      # Poll until disassociation completes
-      echo -n "    Waiting for disassociation"
+      # Poll until release completes
+      echo -n "    Waiting for release"
       for _ in $(seq 1 30); do
         STATUS=$(aws connect describe-phone-number \
           --phone-number-id "${phone_id}" \

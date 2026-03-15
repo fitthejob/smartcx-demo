@@ -216,11 +216,14 @@ resource "aws_connect_hours_of_operation" "billing_hours" {
 # Built-in "Default queue" flow — used as queue_flow_module_id
 # ─────────────────────────────────────────────
 
-data "aws_connect_contact_flow" "default_queue" {
-  instance_id = aws_connect_instance.smartcx.id
-  name        = "Default queue"
-  type        = "QUEUE_TRANSFER"
-}
+# data "aws_connect_contact_flow" "default_queue" — temporarily commented out.
+# This data source requires the Connect instance to be fully initialized before
+# it can query built-in flows. Re-enable after first apply once the instance is active.
+# data "aws_connect_contact_flow" "default_queue" {
+#   instance_id = aws_connect_instance.smartcx.id
+#   name        = "Default queue"
+#   type        = "QUEUE_TRANSFER"
+# }
 
 # ─────────────────────────────────────────────
 # Queues
@@ -344,6 +347,57 @@ resource "aws_connect_contact_flow" "agent_whisper" {
   name        = "AgentWhisper"
   type        = "AGENT_WHISPER"
   content     = file("${path.module}/../../../../connect/flows/agent-whisper.json")
+}
+
+# ─────────────────────────────────────────────
+# Agent users
+# ─────────────────────────────────────────────
+
+data "aws_connect_security_profile" "agent" {
+  instance_id = aws_connect_instance.smartcx.id
+  name        = "Agent"
+}
+
+resource "aws_connect_user" "demo_agent" {
+  instance_id        = aws_connect_instance.smartcx.id
+  name               = "demo-agent"
+  password           = var.agent_password
+  routing_profile_id = aws_connect_routing_profile.demo_agent.routing_profile_id
+
+  security_profile_ids = [
+    data.aws_connect_security_profile.agent.security_profile_id
+  ]
+
+  identity_info {
+    first_name = "Demo"
+    last_name  = "Agent"
+  }
+
+  phone_config {
+    phone_type  = "SOFT_PHONE"
+    auto_accept = false
+  }
+}
+
+resource "aws_connect_user" "billing_agent" {
+  instance_id        = aws_connect_instance.smartcx.id
+  name               = "billing-agent"
+  password           = var.agent_password
+  routing_profile_id = aws_connect_routing_profile.billing_agent.routing_profile_id
+
+  security_profile_ids = [
+    data.aws_connect_security_profile.agent.security_profile_id
+  ]
+
+  identity_info {
+    first_name = "Billing"
+    last_name  = "Agent"
+  }
+
+  phone_config {
+    phone_type  = "SOFT_PHONE"
+    auto_accept = false
+  }
 }
 
 # ─────────────────────────────────────────────

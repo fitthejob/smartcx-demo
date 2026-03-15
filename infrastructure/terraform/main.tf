@@ -80,6 +80,7 @@ module "connect" {
   aws_region              = var.aws_region
   order_lookup_lambda_arn = module.lambda.order_lookup_arn
   lex_bot_alias_arn       = var.lex_bot_alias_arn
+  agent_password          = var.agent_password
 }
 
 module "monitoring" {

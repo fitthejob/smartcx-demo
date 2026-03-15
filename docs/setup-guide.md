@@ -1,7 +1,6 @@
 # SmartCX Demo — Setup Guide
 
-End-to-end instructions for deploying the SmartCX Demo stack from scratch.
-Steps 1–5 cover infrastructure deployment. Steps 6–10 cover seeding, dashboard, and validation (completed in Phase 7 once deploy scripts are done).
+End-to-end instructions for deploying the SmartCX Demo stack from scratch on a clean AWS account.
 
 ---
 
@@ -28,7 +27,7 @@ aws sts get-caller-identity
 ```
 
 **Required IAM permissions** — the deploying identity needs permissions across:
-Connect, Lex, Lambda, DynamoDB, API Gateway, EventBridge, SNS, SQS, S3, CloudFront, CloudWatch, IAM (role/policy creation), X-Ray.
+Connect, Lex, Lambda, DynamoDB, API Gateway, EventBridge, SNS, SQS, S3, CloudFront, CloudWatch, IAM (role/policy creation).
 
 For a personal AWS account, `AdministratorAccess` is simplest. For a shared account, scope to the services above.
 
@@ -36,7 +35,7 @@ For a personal AWS account, `AdministratorAccess` is simplest. For a shared acco
 
 ## Step 2 — Manual Lex v2 Bot Build
 
-> **Why manual:** The Terraform AWS provider (v5.x) does not support Lex v2 bot content creation. The bot must be built once in the console. The Connect association is handled post-apply via CLI (Step 3.6).
+> **Why manual:** The Terraform AWS provider (v5.x) does not support Lex v2 bot content creation. The bot must be built once in the console. The Connect association is done via the Connect console after apply (Step 4.2).
 
 ### 2.1 Create the bot
 
@@ -45,7 +44,7 @@ For a personal AWS account, `AdministratorAccess` is simplest. For a shared acco
    - Runtime role: create new role with basic Lex permissions
    - COPPA: No
    - Idle session timeout: 5 minutes
-   - Language settings: accept defaults (English US, any voice)
+   - Language settings: English (US), any voice
 
 ### 2.2 Configure intents
 
@@ -61,9 +60,9 @@ For a personal AWS account, `AdministratorAccess` is simplest. For a shared acco
   what is my order status
   I want to check on my order
   ```
-- Slots: none — order lookup uses the caller's phone number (ANI), no slot collection needed
+- Slots: none — order lookup uses the caller's phone number (ANI)
 - Initial response: leave blank
-- Fulfillment: turn **Active off** — Connect handles fulfillment, not Lex
+- Fulfillment: turn **Active off** — Connect handles fulfillment
 - Save intent
 
 **Intent 2: `CancelOrder`**
@@ -79,7 +78,7 @@ For a personal AWS account, `AdministratorAccess` is simplest. For a shared acco
 
 **FallbackIntent:** leave as-is (auto-created, no changes needed)
 
-> Do not enable Lambda for initialization or fulfillment on any intent. Skip bot-level logging — observability is provided by Contact Lens and Lambda CloudWatch logs.
+> Do not enable Lambda for initialization or fulfillment on any intent. Do not enable bot-level logging — observability is provided by Contact Lens and Lambda CloudWatch logs.
 
 ### 2.3 Build and publish
 
@@ -109,21 +108,32 @@ arn:aws:lex:us-east-1:ACCOUNT_ID:bot-alias/BOT_ID/ALIAS_ID
 
 ## Step 3 — Configure Terraform Variables
 
+Copy the example file and fill in your values:
+
 ```bash
 cd infrastructure/terraform
-# terraform.tfvars is already present if you cloned with example values — edit it directly
+cp terraform.tfvars.example terraform.tfvars
 ```
 
-Edit `infrastructure/terraform/terraform.tfvars`:
+Edit `terraform.tfvars`:
+
 ```hcl
 aws_region          = "us-east-1"
 project_name        = "smartcx-demo"
 alert_email         = "your-email@example.com"   # receives negative-sentiment SNS alerts
 sentiment_threshold = "-0.5"
 lex_bot_alias_arn   = "arn:aws:lex:us-east-1:ACCOUNT_ID:bot-alias/BOT_ID/ALIAS_ID"
+agent_password      = "YourPassword1!"           # see password policy below
 ```
 
-> `terraform.tfvars` is excluded by `.gitignore` — never commit it.
+**Connect password policy** — `agent_password` must meet all of:
+- 8 or more characters
+- At least one uppercase letter
+- At least one lowercase letter
+- At least one number
+- At least one special character (e.g. `!`, `@`, `#`)
+
+> `terraform.tfvars` is excluded by `.gitignore` — never commit it. The committed template is `terraform.tfvars.example`.
 
 ---
 
@@ -132,114 +142,257 @@ lex_bot_alias_arn   = "arn:aws:lex:us-east-1:ACCOUNT_ID:bot-alias/BOT_ID/ALIAS_I
 ```bash
 cd infrastructure/terraform
 terraform init
-terraform plan    # review — expect ~30 new resources on first full apply
+terraform plan    # review — expect ~35 new resources on first full apply
 terraform apply
 ```
-
-> **Existing state note:** If DynamoDB tables were previously applied in isolation (e.g. during development), Terraform will show them as already existing and only add the remaining resources. This is expected — do not import or recreate them.
 
 After apply, capture the outputs:
 ```bash
 terraform output
 ```
 
-Key outputs to note:
+Key outputs:
 
 | Output | Used for |
 |---|---|
-| `api_endpoint` | Dashboard `VITE_API_BASE_URL` env var |
 | `connect_instance_id` | Post-apply CLI commands |
+| `api_endpoint` | Dashboard `VITE_API_BASE_URL` env var |
 | `dashboard_url` | CloudFront URL for the dashboard |
-| `bucket_name` | S3 bucket for dashboard static build upload |
+| `bucket_name` | S3 bucket for dashboard static build |
 | `distribution_id` | CloudFront invalidation after dashboard deploy |
+| `main_ivr_flow_id` | Reference — MainIVRFlow contact flow ID |
 
-### 4.1 If apply fails on contact flow resources
+**What Terraform provisions:**
+- Connect instance, hours of operation, queues (`SupportQueue`, `BillingQueue`), routing profiles (`DemoAgentProfile`, `BillingAgentProfile`)
+- Contact flows: `MainIVRFlow`, `ChatFlow`, `AgentWhisper`
+- Agent users: `demo-agent` (DemoAgentProfile) and `billing-agent` (BillingAgentProfile)
+- Lambda functions, DynamoDB tables, API Gateway, EventBridge rule, SNS topic, SQS DLQ, S3 buckets, CloudFront distribution, CloudWatch alarms
 
-Amazon Connect validates contact flow JSON server-side. If `aws_connect_contact_flow` resources fail with a schema error:
+### 4.1 Agent users
 
-1. Comment out the three `aws_connect_contact_flow` resources in `modules/connect/main.tf`
-2. Re-run `terraform apply` — the instance, queues, routing profiles, and S3 bucket will be created
-3. Build the three flows visually in the Connect console following the spec in section 6.5 of the PRD
-4. Export each flow: open the flow → **Save** → **Export flow** → save JSON to `connect/flows/`
-5. Uncomment the resources, replace the placeholder JSON with the exports, re-run `terraform apply`
+`demo-agent` and `billing-agent` are fully managed by Terraform. They are created on apply and destroyed on destroy — no manual user creation is needed.
+
+Both users are created with:
+- Security profile: `Agent`
+- Phone type: `SOFT_PHONE`
+- Password: the value of `agent_password` in `terraform.tfvars`
+
+To log in as an agent after apply:
+```
+https://<instance-alias>.my.connect.aws/ccp-v2/
+```
+Where `<instance-alias>` matches `project_name` in `terraform.tfvars` (default: `smartcx-demo`).
 
 ---
 
-## Step 3.5 — Enable Contact Flow Logs
+## Step 4.2 — Associate Lex v2 Bot with Connect
 
-Contact flow logs are not a Terraform-managed attribute. Run after apply:
+> The Terraform AWS provider (v5.x) does not support Lex v2 bot associations. This is a known provider gap. Association is done once via the Connect console.
+
+1. Open the Connect console → your instance → **Channels** → **Amazon Lex**
+2. Under **Amazon Lex V2 bots** → **Add Amazon Lex Bot**
+3. Select `SmartCXOrderBot` and the `live` alias
+4. Click **Save**
+
+Verify the bot appears in the list before proceeding.
+
+---
+
+## Step 4.3 — Enable Contact Flow Logs
+
+Contact flow logging is an instance-level attribute, not a flow-level setting, and is not managed by Terraform. Run once after apply:
 
 ```bash
 aws connect update-instance-attribute \
-  --instance-id $(terraform output -raw connect_instance_id) \
-  --attribute-type CONTACT_FLOW_LOGS \
+  --instance-id $(cd infrastructure/terraform && terraform output -raw connect_instance_id) \
+  --attribute-type CONTACTFLOW_LOGS \
   --value true \
   --region us-east-1
 ```
 
+> Note: the attribute type is `CONTACTFLOW_LOGS` — no underscore between CONTACT and FLOW.
+
 ---
 
-## Step 3.6 — Associate Lex v2 Bot with Connect
+## Step 5 — Claim a Phone Number
 
-The Terraform AWS provider only supports Lex v1 bot associations. The Lex v2 association is done via CLI after apply:
+Phone number claiming has no Terraform or CLI support — it must be done in the Connect console.
+
+1. Connect console → **Channels** → **Phone numbers** → **Claim a number**
+2. Type: DID (local) or Toll-free, Country: US
+3. Associate with flow: `MainIVRFlow`
+4. Note the number — all test calls use this number
+
+---
+
+## Step 6 — Seed DynamoDB with Demo Orders
+
+The seed script populates `smartcx-demo-orders` with sample records keyed by phone number so the order-lookup Lambda has data to return during test calls.
 
 ```bash
-aws connect associate-lex-bot \
-  --instance-id $(terraform output -raw connect_instance_id) \
-  --lex-v2-bot aliasArn=$(terraform output -raw lex_bot_alias_arn) \
+cd infrastructure/scripts
+python seed_dynamodb.py \
+  --table smartcx-demo-orders \
   --region us-east-1
 ```
 
-Verify: Connect console → **Channels** → **Amazon Lex** → confirm `SmartCXOrderBot` appears.
+The script creates orders associated with specific phone numbers. Use those numbers when making test calls (or call from a number in the seed set).
+
+Alternatively, `deploy.sh` accepts a `--seed` flag that runs this automatically.
 
 ---
 
-## Step 5 — Create Demo Agent Users and Claim Phone Number
+## Step 7 — Build and Deploy the React Dashboard
 
-> Agent users have no Terraform support in Connect. Two agents are required to demonstrate queue isolation between `DemoAgentProfile` (SupportQueue) and `BillingAgentProfile` (BillingQueue).
+```bash
+cd dashboard
+cp .env.example .env       # if .env does not exist
+```
 
-### 5.1 Create agent users
+Edit `dashboard/.env`:
+```
+VITE_API_BASE_URL=https://YOUR_API_GATEWAY_URL/prod
+```
 
-Connect console → **Users** → **User management** → **Add new user**:
+Use the `api_endpoint` value from `terraform output`.
 
-**Agent 1 — Support agent:**
-- First name: `Demo`, Last name: `Agent`, Username: `demo-agent`
-- Routing profile: `DemoAgentProfile`
-- Security profile: `Agent`
-- Set a temporary password
+```bash
+npm install
+npm run build
+```
 
-**Agent 2 — Billing specialist:**
-- First name: `Billing`, Last name: `Agent`, Username: `billing-agent`
-- Routing profile: `BillingAgentProfile`
-- Security profile: `Agent`
-- Set a temporary password
+Deploy to S3 and invalidate CloudFront:
+```bash
+BUCKET=$(cd ../infrastructure/terraform && terraform output -raw bucket_name)
+DIST_ID=$(cd ../infrastructure/terraform && terraform output -raw distribution_id)
 
-### 5.2 Claim a phone number
+aws s3 sync dist/ s3://$BUCKET --delete
+aws cloudfront create-invalidation --distribution-id $DIST_ID --paths "/*"
+```
 
-Connect console → **Channels** → **Phone numbers** → **Claim a number**:
-- Type: DID (local) or Toll-free, Country: US
-- Associate with flow: `MainIVRFlow`
-- Note the number — all test calls use this number
+The dashboard URL is available at:
+```bash
+cd infrastructure/terraform && terraform output -raw dashboard_url
+```
 
-### 5.3 Before running test calls
+---
 
-1. Log in as `demo-agent`: `https://smartcx-demo.my.connect.aws/ccp-v2/`
-2. Log in as `billing-agent` in a second browser or incognito window
+## Step 8 — Post-Deploy Validation
+
+Run the smoke-test script to verify all resources are correctly configured:
+
+```bash
+cd infrastructure/scripts
+
+INSTANCE_ID=$(cd ../terraform && terraform output -raw connect_instance_id)
+DLQ_URL=$(cd ../terraform && terraform output -raw contact_lens_dlq_url)
+
+python validate_connect.py \
+  --instance-id $INSTANCE_ID \
+  --dlq-url $DLQ_URL \
+  --region us-east-1
+```
+
+The script checks:
+1. Instance is `ACTIVE`
+2. Contact flow logs enabled
+3. `SupportQueue` and `BillingQueue` exist
+4. `DemoAgentProfile` routing profile exists
+5. `MainIVRFlow`, `ChatFlow`, `AgentWhisper` flows exist
+6. `order-lookup` Lambda is associated
+7. Lex bot is associated
+8. `CALL_RECORDINGS` storage config present
+9. `CONTACT_TRACE_RECORDS` storage config present
+10. Contact Lens DLQ is empty
+
+Exit code `0` = all checks passed. Exit code `1` = one or more failed — review output for details.
+
+---
+
+## Step 9 — End-to-End Test Call
+
+### 9.1 Prepare agents
+
+1. Log in as `demo-agent` at `https://smartcx-demo.my.connect.aws/ccp-v2/`
+2. Log in as `billing-agent` in a second browser window or incognito tab
 3. Set both agents to **Available**
 
-Expected routing behavior:
-- Press 1 → order status self-service (Lambda lookup)
-- Press 2 → `demo-agent` via SupportQueue
-- Press 3 → `billing-agent` via BillingQueue (demonstrates queue isolation)
+### 9.2 Test scenarios
+
+Call the phone number claimed in Step 5 and exercise each path:
+
+| Press | Expected behavior |
+|---|---|
+| `1` | Lambda looks up order by ANI. If found, reads order ID, status, and estimated delivery, then disconnects. If not found, plays error message and routes to SupportQueue. |
+| `2` | Routes directly to SupportQueue → `demo-agent` receives the call |
+| `3` | Routes to BillingQueue → `billing-agent` receives the call |
+| `9` | Repeats the main menu |
+| _(no input / timeout)_ | Plays fallback message, routes to SupportQueue |
+
+### 9.3 Verify Contact Lens data
+
+After completing test calls, allow 2–5 minutes for Contact Lens post-contact analysis to complete, then:
+- Open the dashboard at the CloudFront URL from Step 7
+- Verify contacts appear in the contacts table
+- Verify sentiment data populates the donut chart
+- Verify queue metrics cards show activity
 
 ---
 
-## Steps 6–10
+## Step 10 — Cost Controls
 
-To be completed in Phase 7.
+Set a budget alert to avoid unexpected charges:
 
-- **Step 6** — Seed DynamoDB with demo orders (`infrastructure/scripts/seed_dynamodb.py`)
-- **Step 7** — Build and deploy the React dashboard (`infrastructure/scripts/deploy.sh`)
-- **Step 8** — Run post-deploy validation (`infrastructure/scripts/validate_connect.py`)
-- **Step 9** — Set AWS Budget alert ($20/month)
-- **Step 10** — End-to-end test call walkthrough
+1. AWS console → **Billing** → **Budgets** → **Create budget**
+2. Type: Cost budget
+3. Amount: `$20` (monthly)
+4. Alert threshold: 80% actual, notify `alert_email`
+
+Typical demo usage (light testing, no production traffic) stays well under $5/month. The Connect instance itself has no standing charge — costs accrue per contact minute.
+
+---
+
+## Teardown
+
+To destroy all resources:
+
+```bash
+cd infrastructure/scripts
+bash teardown.sh
+```
+
+The teardown script:
+1. Prompts for confirmation
+2. Lists and disassociates any claimed phone numbers
+3. Empties S3 buckets (required before Terraform can delete them)
+4. Runs `terraform destroy`
+
+> The Lex v2 bot is **not** deleted by Terraform (it was created manually). Delete it separately in the Lex console if no longer needed.
+
+---
+
+## Troubleshooting
+
+**`InvalidContactFlowException` during apply**
+
+Run with `--debug` on a direct CLI call to expose the `problems` array:
+```bash
+aws connect create-contact-flow \
+  --instance-id <id> --name "Debug" --type CONTACT_FLOW \
+  --content file://connect/flows/main-ivr-flow.json \
+  --debug 2>&1 | grep problems
+```
+
+See `docs/connect-flow-json-reference.md` for a full catalog of known schema issues and fixes.
+
+**`CONTACTFLOW_LOGS` attribute — wrong attribute type**
+
+The correct value is `CONTACTFLOW_LOGS` (no underscore between CONTACT and FLOW). `CONTACT_FLOW_LOGS` is rejected.
+
+**Agent users not receiving calls**
+
+Ensure both agents are set to **Available** in the CCP. Soft phone agents must have the CCP tab open and active. Check that the routing profile assigned to each user matches the queue the call is being routed to.
+
+**Lex bot not appearing in Connect**
+
+Confirm the alias points to a published version (not `$LATEST`). Re-associate via Connect console → Channels → Amazon Lex if needed.
