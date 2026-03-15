@@ -55,7 +55,7 @@
       "Identifier": "284232f7-e79a-45bf-84b8-288dd3dbe53c",
       "Type": "UpdateContactTargetQueue",
       "Parameters": {
-        "QueueId": "arn:aws:connect:us-east-1:205500199161:instance/e94b80d6-37f8-4257-930c-e8cbc6e76252/queue/ac71c826-608e-4d42-b6ec-f82d8e1b3f22"
+        "QueueId": "${support_queue_arn}"
       },
       "Transitions": {
         "NextAction": "b9983e0b-fd25-40b8-8a09-1af416d259dc",
@@ -82,7 +82,7 @@
       "Identifier": "3beb10fa-a92a-4da6-a4e3-70eef4688ecb",
       "Type": "UpdateContactTargetQueue",
       "Parameters": {
-        "QueueId": "arn:aws:connect:us-east-1:205500199161:instance/e94b80d6-37f8-4257-930c-e8cbc6e76252/queue/6b4846b0-ab90-4c02-a149-c8d487453a2b"
+        "QueueId": "${billing_queue_arn}"
       },
       "Transitions": {
         "NextAction": "debe9363-5d60-4481-b6a8-ddbaf6fc0fac",

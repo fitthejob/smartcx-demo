@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.0"
+    }
   }
 
   # TODO: production hardening — replace local backend with S3 + DynamoDB state locking:
@@ -74,12 +78,16 @@ module "cloudfront" {
   project_name = var.project_name
 }
 
+module "lex" {
+  source       = "./modules/lex"
+  project_name = var.project_name
+}
+
 module "connect" {
   source                  = "./modules/connect"
   project_name            = var.project_name
   aws_region              = var.aws_region
   order_lookup_lambda_arn = module.lambda.order_lookup_arn
-  lex_bot_alias_arn       = var.lex_bot_alias_arn
   agent_password          = var.agent_password
 }
 

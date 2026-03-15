@@ -62,7 +62,7 @@
       "Identifier": "66926f61-6c1f-4cf5-ac51-508086a04b80",
       "Type": "InvokeLambdaFunction",
       "Parameters": {
-        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:205500199161:function:smartcx-demo-order-lookup",
+        "LambdaFunctionARN": "${order_lookup_lambda_arn}",
         "InvocationTimeLimitSeconds": "8"
       },
       "Transitions": {
@@ -135,7 +135,7 @@
       "Identifier": "79501808-1cd8-4fe3-8eb0-9c515ec019d1",
       "Type": "UpdateContactTargetQueue",
       "Parameters": {
-        "QueueId": "arn:aws:connect:us-east-1:205500199161:instance/e94b80d6-37f8-4257-930c-e8cbc6e76252/queue/ac71c826-608e-4d42-b6ec-f82d8e1b3f22"
+        "QueueId": "${support_queue_arn}"
       },
       "Transitions": {
         "NextAction": "b26bd424-89d0-4291-a7a3-7c30e2bb512a",
@@ -176,7 +176,7 @@
       "Identifier": "1c48a3fa-d0ec-4eb3-8853-00a97ea2c033",
       "Type": "UpdateContactTargetQueue",
       "Parameters": {
-        "QueueId": "arn:aws:connect:us-east-1:205500199161:instance/e94b80d6-37f8-4257-930c-e8cbc6e76252/queue/6b4846b0-ab90-4c02-a149-c8d487453a2b"
+        "QueueId": "${billing_queue_arn}"
       },
       "Transitions": {
         "NextAction": "72b30746-f13b-457b-96c0-5839ca1b24c8",

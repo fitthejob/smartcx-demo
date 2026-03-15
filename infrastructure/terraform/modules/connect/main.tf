@@ -3,15 +3,15 @@
 # routing profiles, contact flows, Lambda/Lex associations,
 # and recordings S3 bucket with lifecycle management.
 #
-# Manual prerequisites before terraform apply:
-#   1. Build Lex v2 bot SmartCXOrderBot in the console and publish an alias.
-#      Pass the alias ARN as var.lex_bot_alias_arn.
-#   2. After apply, claim a phone number in the Connect console and associate
+# Manual steps after terraform apply:
+#   1. After apply, claim a phone number in the Connect console and associate
 #      it with MainIVRFlow. Phone number claiming has no Terraform support.
-#   3. Create agent users in the Connect console (see setup-guide.md §5).
-#   4. Enable contact flow logs via CLI after instance creation:
+#   2. Enable contact flow logs via CLI (done by deploy.sh):
 #      aws connect update-instance-attribute \
 #        --instance-id <id> --attribute-type CONTACT_FLOW_LOGS --value true
+#   3. Associate Lex bot via CLI (done by deploy.sh):
+#      aws connect associate-lex-bot \
+#        --instance-id <id> --lex-v2-bot aliasArn=<lex_bot_alias_arn>
 
 # ─────────────────────────────────────────────
 # Connect instance
@@ -81,6 +81,10 @@ resource "aws_connect_instance_storage_config" "recordings" {
     storage_type = "S3"
   }
 }
+
+# CONTACT_TRACE_RECORDS requires a Kinesis stream — S3 is not a valid storage
+# type for CTRs. Omitted for this demo; Contact Lens post-contact analysis
+# events are captured via the contact-lens-handler Lambda triggered by EventBridge.
 
 # ─────────────────────────────────────────────
 # Hours of operation
@@ -332,14 +336,21 @@ resource "aws_connect_contact_flow" "main_ivr" {
   instance_id = aws_connect_instance.smartcx.id
   name        = "MainIVRFlow"
   type        = "CONTACT_FLOW"
-  content     = file("${path.module}/../../../../connect/flows/main-ivr-flow.json")
+  content = templatefile("${path.module}/../../../../connect/flows/main-ivr-flow.json", {
+    order_lookup_lambda_arn = var.order_lookup_lambda_arn
+    support_queue_arn       = aws_connect_queue.support.arn
+    billing_queue_arn       = aws_connect_queue.billing.arn
+  })
 }
 
 resource "aws_connect_contact_flow" "chat_flow" {
   instance_id = aws_connect_instance.smartcx.id
   name        = "ChatFlow"
   type        = "CONTACT_FLOW"
-  content     = file("${path.module}/../../../../connect/flows/chat-flow.json")
+  content = templatefile("${path.module}/../../../../connect/flows/chat-flow.json", {
+    support_queue_arn = aws_connect_queue.support.arn
+    billing_queue_arn = aws_connect_queue.billing.arn
+  })
 }
 
 resource "aws_connect_contact_flow" "agent_whisper" {
@@ -409,16 +420,14 @@ resource "aws_connect_lambda_function_association" "order_lookup" {
   function_arn = var.order_lookup_lambda_arn
 }
 
-# Lex v2 bot association — intentionally not managed by Terraform.
+# Lex v2 bot association — performed post-apply by deploy.sh via AWS CLI.
 #
-# The aws_connect_bot_association resource only supports Lex v1 (name ≤50 chars).
-# Lex v2 associations require passing an alias ARN, which the provider does not support.
-# This is a known gap in hashicorp/aws as of v5.x.
-#
-# The association is performed as a post-apply step in infrastructure/scripts/deploy.sh:
-#   aws connect associate-lex-bot \
+# The aws_connect_bot_association resource only supports Lex v1.
+# Lex v2 requires passing an alias ARN, which the provider does not support.
+# deploy.sh runs this after terraform apply:
+#   aws connect associate-bot \
 #     --instance-id <instance_id> \
-#     --lex-v2-bot aliasArn=<lex_bot_alias_arn> \
+#     --lex-v2-bot AliasArn=<lex_alias_arn> \
 #     --region <region>
-#
-# See docs/setup-guide.md for the full deploy sequence.
+# Note: associate-lex-bot is Lex v1 only — associate-bot supports both v1 and v2.
+# The bot is created by modules/lex; its alias ARN is constructed in deploy.sh.

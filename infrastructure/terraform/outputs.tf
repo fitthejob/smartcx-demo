@@ -23,6 +23,11 @@ output "connect_instance_id" {
   value = module.connect.instance_id
 }
 
+output "lex_bot_id" {
+  description = "Lex v2 bot ID — deploy.sh resolves the 'live' alias ARN from this after apply"
+  value       = module.lex.bot_id
+}
+
 output "recordings_bucket_name" {
   value = module.connect.recordings_bucket_name
 }

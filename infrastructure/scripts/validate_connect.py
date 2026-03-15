@@ -57,7 +57,7 @@ def main():
     try:
         resp = connect.describe_instance_attribute(
             InstanceId=args.instance_id,
-            AttributeType="CONTACT_FLOW_LOGS",
+            AttributeType="CONTACTFLOW_LOGS",
         )
         value = resp["Attribute"]["Value"]
         ok = check("Contact flow logs enabled", value == "true", f"value={value}")
@@ -70,9 +70,9 @@ def main():
     try:
         paginator = connect.get_paginator("list_queues")
         found_queues = set()
-        for page in paginator.paginate(InstanceId=args.instance_id):
+        for page in paginator.paginate(InstanceId=args.instance_id, QueueTypes=["STANDARD"]):
             for q in page.get("QueueSummaryList", []):
-                if q["Name"] in EXPECTED_QUEUES:
+                if q.get("Name") in EXPECTED_QUEUES:
                     found_queues.add(q["Name"])
         for queue_name in sorted(EXPECTED_QUEUES):
             ok = check(f"Queue exists: {queue_name}", queue_name in found_queues)
@@ -137,20 +137,20 @@ def main():
         check("order-lookup Lambda associated", False, str(e))
         failures += 1
 
-    # ── 7. Lex bot associated ─────────────────────────────────────────────────
+    # ── 7. Lex v2 bot associated ──────────────────────────────────────────────
+    # list_bots with LexVersion=V2 is the correct API for Lex v2 associations.
+    # list_lex_bots only covers Lex v1. The bot name is not in the v2 response —
+    # match on the bot ID embedded in the AliasArn instead.
     try:
-        paginator = connect.get_paginator("list_lex_bots")
         lex_found = False
-        for page in paginator.paginate(InstanceId=args.instance_id):
+        paginator = connect.get_paginator("list_bots")
+        lex_bot_id = boto3.client("lexv2-models", region_name=args.region) \
+            .list_bots(filters=[{"name": "BotName", "values": [LEX_BOT_NAME], "operator": "EQ"}]) \
+            .get("botSummaries", [{}])[0].get("botId", "")
+        for page in paginator.paginate(InstanceId=args.instance_id, LexVersion="V2"):
             for bot in page.get("LexBots", []):
-                if bot.get("Name") == LEX_BOT_NAME:
-                    lex_found = True
-                    break
-        # Also check Lex v2
-        if not lex_found:
-            v2_resp = connect.list_lex_bots(InstanceId=args.instance_id)
-            for bot in v2_resp.get("LexBots", []):
-                if LEX_BOT_NAME in bot.get("AliasArn", ""):
+                alias_arn = bot.get("LexV2Bot", {}).get("AliasArn", "")
+                if lex_bot_id and lex_bot_id in alias_arn:
                     lex_found = True
                     break
         ok = check(f"Lex bot associated: {LEX_BOT_NAME}", lex_found)
@@ -160,20 +160,21 @@ def main():
         check(f"Lex bot associated: {LEX_BOT_NAME}", False, str(e))
         failures += 1
 
-    # ── 8 & 9. Storage configs ────────────────────────────────────────────────
-    for resource_type in ("CALL_RECORDINGS", "CONTACT_TRACE_RECORDS"):
-        try:
-            resp = connect.list_instance_storage_configs(
-                InstanceId=args.instance_id,
-                ResourceType=resource_type,
-            )
-            configs = resp.get("StorageConfigs", [])
-            ok = check(f"Storage config: {resource_type}", len(configs) > 0)
-            if not ok:
-                failures += 1
-        except ClientError as e:
-            check(f"Storage config: {resource_type}", False, str(e))
+    # ── 8. Storage config: CALL_RECORDINGS ───────────────────────────────────
+    # CONTACT_TRACE_RECORDS requires Kinesis (not S3) and is not provisioned
+    # for this demo — Contact Lens events flow via EventBridge + Lambda instead.
+    try:
+        resp = connect.list_instance_storage_configs(
+            InstanceId=args.instance_id,
+            ResourceType="CALL_RECORDINGS",
+        )
+        configs = resp.get("StorageConfigs", [])
+        ok = check("Storage config: CALL_RECORDINGS", len(configs) > 0)
+        if not ok:
             failures += 1
+    except ClientError as e:
+        check("Storage config: CALL_RECORDINGS", False, str(e))
+        failures += 1
 
     # ── 10. DLQ empty ─────────────────────────────────────────────────────────
     try:
@@ -190,7 +191,6 @@ def main():
         failures += 1
 
     # ── Summary ───────────────────────────────────────────────────────────────
-    total = 10 + len(EXPECTED_QUEUES) + len(EXPECTED_FLOWS) - 2
     print()
     if failures:
         print(f"  {failures} check(s) failed. Review the output above.")

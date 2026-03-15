@@ -1,22 +1,30 @@
 #!/usr/bin/env bash
 # teardown.sh
-# Safe teardown — must run before terraform destroy.
+# Safe teardown — two modes:
 #
-# terraform destroy fails if:
-#   - A phone number is still associated with the Connect instance
-#   - S3 buckets are non-empty (recordings, dashboard)
+#   Default (full destroy):
+#     Releases phone numbers, empties S3 buckets, runs terraform destroy.
+#     terraform destroy fails if phone numbers or non-empty buckets remain —
+#     this script handles both before running destroy.
 #
-# This script handles both before running destroy.
+#   --data-only (demo reset, no infrastructure changes):
+#     Clears DynamoDB contacts/flagged tables and re-seeds orders.
+#     Use between demo sessions to reset to a clean state without touching
+#     the Connect instance, phone number, or any AWS infrastructure.
+#     The Connect instance has no standing charge — there is no cost reason
+#     to run a full teardown between demos.
 #
 # Usage:
-#   ./infrastructure/scripts/teardown.sh [--region REGION]
+#   ./infrastructure/scripts/teardown.sh [--data-only] [--region REGION]
 #
 # Flags:
-#   --region    AWS region (default: us-east-1)
+#   --data-only  Reset DynamoDB data only — do not destroy infrastructure
+#   --region     AWS region (default: us-east-1)
 
 set -euo pipefail
 
 REGION="us-east-1"
+DATA_ONLY=false
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 TF_DIR="${REPO_ROOT}/infrastructure/terraform"
@@ -24,14 +32,97 @@ TF_DIR="${REPO_ROOT}/infrastructure/terraform"
 # ── Parse args ────────────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
   case $1 in
+    --data-only) DATA_ONLY=true; shift ;;
     --region) REGION="$2"; shift 2 ;;
     *) echo "Unknown argument: $1"; exit 1 ;;
   esac
 done
 
-echo "==> SmartCX Teardown (region: ${REGION})"
+# ── Data-only reset ───────────────────────────────────────────────────────────
+if [[ "${DATA_ONLY}" == "true" ]]; then
+  echo "==> SmartCX Data Reset (region: ${REGION})"
+  echo ""
+  echo "    This will clear the contacts and flagged tables, then re-seed orders."
+  echo -n "    Continue? [y/N] "
+  read -r confirm
+  if [[ "${confirm}" != "y" && "${confirm}" != "Y" ]]; then
+    echo "    Aborted."
+    exit 0
+  fi
+
+  cd "${TF_DIR}"
+  ORDERS_TABLE=$(terraform output -raw orders_table_name 2>/dev/null || echo "")
+  CONTACTS_TABLE=$(terraform output -raw contacts_table_name 2>/dev/null || echo "")
+  FLAGGED_TABLE=$(terraform output -raw flagged_table_name 2>/dev/null || echo "")
+
+  if [[ -z "${ORDERS_TABLE}" ]]; then
+    echo "    ERROR: Could not read Terraform outputs — is the stack deployed?"
+    exit 1
+  fi
+
+  echo ""
+  echo "==> [1/3] Clearing contacts table (${CONTACTS_TABLE})"
+  # Scan for all contactIds, then batch-delete
+  CONTACT_KEYS=$(aws dynamodb scan \
+    --table-name "${CONTACTS_TABLE}" \
+    --region "${REGION}" \
+    --projection-expression "contactId" \
+    --query "Items[].contactId.S" \
+    --output text 2>/dev/null || echo "")
+  if [[ -z "${CONTACT_KEYS}" || "${CONTACT_KEYS}" == "None" ]]; then
+    echo "    Table already empty — skipping"
+  else
+    for key in ${CONTACT_KEYS}; do
+      aws dynamodb delete-item \
+        --table-name "${CONTACTS_TABLE}" \
+        --key "{\"contactId\": {\"S\": \"${key}\"}}" \
+        --region "${REGION}" > /dev/null
+    done
+    echo "    Cleared $(echo "${CONTACT_KEYS}" | wc -w | tr -d ' ') records"
+  fi
+
+  echo ""
+  echo "==> [2/3] Clearing flagged-contacts table (${FLAGGED_TABLE})"
+  FLAGGED_KEYS=$(aws dynamodb scan \
+    --table-name "${FLAGGED_TABLE}" \
+    --region "${REGION}" \
+    --projection-expression "contactId" \
+    --query "Items[].contactId.S" \
+    --output text 2>/dev/null || echo "")
+  if [[ -z "${FLAGGED_KEYS}" || "${FLAGGED_KEYS}" == "None" ]]; then
+    echo "    Table already empty — skipping"
+  else
+    for key in ${FLAGGED_KEYS}; do
+      aws dynamodb delete-item \
+        --table-name "${FLAGGED_TABLE}" \
+        --key "{\"contactId\": {\"S\": \"${key}\"}}" \
+        --region "${REGION}" > /dev/null
+    done
+    echo "    Cleared $(echo "${FLAGGED_KEYS}" | wc -w | tr -d ' ') records"
+  fi
+
+  echo ""
+  echo "==> [3/3] Re-seeding orders table (${ORDERS_TABLE})"
+  cd "${REPO_ROOT}"
+  python infrastructure/scripts/seed_dynamodb.py \
+    --table "${ORDERS_TABLE}" \
+    --region "${REGION}"
+
+  echo ""
+  echo "============================================================"
+  echo "  SmartCX Data Reset Complete"
+  echo "============================================================"
+  echo "  Contacts and flagged tables cleared."
+  echo "  Orders table re-seeded with demo data."
+  echo "  Infrastructure unchanged — Connect instance still running."
+  echo "============================================================"
+  exit 0
+fi
+
+echo "==> SmartCX Full Teardown (region: ${REGION})"
 echo ""
-echo "    WARNING: This will destroy all SmartCX Demo infrastructure."
+echo "    WARNING: This will destroy ALL SmartCX Demo infrastructure."
+echo "    To reset demo data only (no infrastructure changes), use --data-only."
 echo -n "    Continue? [y/N] "
 read -r confirm
 if [[ "${confirm}" != "y" && "${confirm}" != "Y" ]]; then
@@ -128,7 +219,6 @@ echo "============================================================"
 echo "  SmartCX Teardown Complete"
 echo "============================================================"
 echo "  All infrastructure destroyed."
-echo "  Note: The Lex v2 bot SmartCXOrderBot must be deleted"
-echo "  manually in the Amazon Lex console — it was created"
-echo "  manually and is not managed by Terraform."
+echo "  The Lex v2 bot SmartCXOrderBot is managed by Terraform"
+echo "  and has been destroyed above."
 echo "============================================================"

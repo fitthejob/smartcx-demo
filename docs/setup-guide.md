@@ -33,80 +33,7 @@ For a personal AWS account, `AdministratorAccess` is simplest. For a shared acco
 
 ---
 
-## Step 2 — Manual Lex v2 Bot Build
-
-> **Why manual:** The Terraform AWS provider (v5.x) does not support Lex v2 bot content creation. The bot must be built once in the console. The Connect association is done via the Connect console after apply (Step 4.2).
-
-### 2.1 Create the bot
-
-1. Open **Amazon Lex** in the AWS console — use the same region as your deployment (`us-east-1`)
-2. **Create bot** → name: `SmartCXOrderBot`
-   - Runtime role: create new role with basic Lex permissions
-   - COPPA: No
-   - Idle session timeout: 5 minutes
-   - Language settings: English (US), any voice
-
-### 2.2 Configure intents
-
-**Intent 1: `CheckOrderStatus`**
-- **Add intent** → **Add empty intent** → name: `CheckOrderStatus`
-- Sample utterances:
-  ```
-  check my order
-  order status
-  where is my order
-  track my order
-  track my package
-  what is my order status
-  I want to check on my order
-  ```
-- Slots: none — order lookup uses the caller's phone number (ANI)
-- Initial response: leave blank
-- Fulfillment: turn **Active off** — Connect handles fulfillment
-- Save intent
-
-**Intent 2: `CancelOrder`**
-- Add intent → name: `CancelOrder`
-- Sample utterances:
-  ```
-  cancel my order
-  I want to cancel
-  cancel order
-  ```
-- Fulfillment: Active off
-- Save intent
-
-**FallbackIntent:** leave as-is (auto-created, no changes needed)
-
-> Do not enable Lambda for initialization or fulfillment on any intent. Do not enable bot-level logging — observability is provided by Contact Lens and Lambda CloudWatch logs.
-
-### 2.3 Build and publish
-
-1. Click **Build** (top right) — wait ~1 minute
-2. **Actions** → **Create version** — description: `v1`
-3. Left nav → **Aliases** → **Create alias**
-   - Name: `live`
-   - Associate with version: `Version 1`
-   - Click Create
-
-> Connect requires the alias to point to a published version. `$LATEST` is rejected.
-
-### 2.4 Get the alias ARN
-
-```bash
-aws lexv2-models list-bots
-
-aws lexv2-models list-bot-aliases --bot-id YOUR_BOT_ID
-```
-
-The `botAliasArn` of the `live` alias is the value you need. Format:
-```
-arn:aws:lex:us-east-1:ACCOUNT_ID:bot-alias/BOT_ID/ALIAS_ID
-```
-
----
-
-## Step 3 — Configure Terraform Variables
+## Step 2 — Configure Terraform Variables
 
 Copy the example file and fill in your values:
 
@@ -122,7 +49,6 @@ aws_region          = "us-east-1"
 project_name        = "smartcx-demo"
 alert_email         = "your-email@example.com"   # receives negative-sentiment SNS alerts
 sentiment_threshold = "-0.5"
-lex_bot_alias_arn   = "arn:aws:lex:us-east-1:ACCOUNT_ID:bot-alias/BOT_ID/ALIAS_ID"
 agent_password      = "YourPassword1!"           # see password policy below
 ```
 
@@ -163,6 +89,7 @@ Key outputs:
 | `main_ivr_flow_id` | Reference — MainIVRFlow contact flow ID |
 
 **What Terraform provisions:**
+- Lex v2 bot (`SmartCXOrderBot`) with `CheckOrderStatus` and `CancelOrder` intents, published version, and `live` alias
 - Connect instance, hours of operation, queues (`SupportQueue`, `BillingQueue`), routing profiles (`DemoAgentProfile`, `BillingAgentProfile`)
 - Contact flows: `MainIVRFlow`, `ChatFlow`, `AgentWhisper`
 - Agent users: `demo-agent` (DemoAgentProfile) and `billing-agent` (BillingAgentProfile)
@@ -185,20 +112,7 @@ Where `<instance-alias>` matches `project_name` in `terraform.tfvars` (default: 
 
 ---
 
-## Step 4.2 — Associate Lex v2 Bot with Connect
-
-> The Terraform AWS provider (v5.x) does not support Lex v2 bot associations. This is a known provider gap. Association is done once via the Connect console.
-
-1. Open the Connect console → your instance → **Channels** → **Amazon Lex**
-2. Under **Amazon Lex V2 bots** → **Add Amazon Lex Bot**
-3. Select `SmartCXOrderBot` and the `live` alias
-4. Click **Save**
-
-Verify the bot appears in the list before proceeding.
-
----
-
-## Step 4.3 — Enable Contact Flow Logs
+## Step 4.2 — Enable Contact Flow Logs
 
 Contact flow logging is an instance-level attribute, not a flow-level setting, and is not managed by Terraform. Run once after apply:
 
@@ -227,18 +141,27 @@ Phone number claiming has no Terraform or CLI support — it must be done in the
 
 ## Step 6 — Seed DynamoDB with Demo Orders
 
-The seed script populates `smartcx-demo-orders` with sample records keyed by phone number so the order-lookup Lambda has data to return during test calls.
+The seed script populates `smartcx-demo-orders` with 22 sample orders keyed by phone number so the order-lookup Lambda has data to return during test calls.
 
+**Option A — seed as part of deploy (recommended for first deploy):**
 ```bash
-cd infrastructure/scripts
-python seed_dynamodb.py \
+./infrastructure/scripts/deploy.sh --seed
+```
+
+**Option B — seed standalone (re-seed without redeploying):**
+```bash
+python infrastructure/scripts/seed_dynamodb.py \
   --table smartcx-demo-orders \
   --region us-east-1
 ```
 
-The script creates orders associated with specific phone numbers. Use those numbers when making test calls (or call from a number in the seed set).
+**Option C — full data reset between demo sessions:**
+```bash
+./infrastructure/scripts/teardown.sh --data-only
+```
+Clears contacts and flagged-contacts tables, then re-seeds orders. Infrastructure untouched.
 
-Alternatively, `deploy.sh` accepts a `--seed` flag that runs this automatically.
+The seed data uses phone numbers in the `+1616555010x` range. Call from one of those numbers to trigger an ANI-based order lookup, or press `1` and provide an order ID manually.
 
 ---
 
@@ -354,20 +277,37 @@ Typical demo usage (light testing, no production traffic) stays well under $5/mo
 
 ## Teardown
 
-To destroy all resources:
+The teardown script has two modes.
+
+### Demo reset (between sessions — no infrastructure changes)
+
+Clears the contacts and flagged-contacts tables, then re-seeds the orders table. The Connect instance, phone number, and all AWS infrastructure remain running. Use this between demo sessions to restore a clean data state.
+
+```bash
+cd infrastructure/scripts
+bash teardown.sh --data-only
+```
+
+> The Connect instance has no standing charge — there is no cost reason to run a full teardown between demos. Prefer `--data-only`.
+
+### Full teardown (done with the project)
+
+Releases phone numbers, empties S3 buckets, and destroys all infrastructure via `terraform destroy`.
 
 ```bash
 cd infrastructure/scripts
 bash teardown.sh
 ```
 
-The teardown script:
+The script:
 1. Prompts for confirmation
-2. Lists and disassociates any claimed phone numbers
-3. Empties S3 buckets (required before Terraform can delete them)
+2. Releases any claimed phone numbers (required before destroy)
+3. Empties S3 buckets (required before destroy)
 4. Runs `terraform destroy`
 
-> The Lex v2 bot is **not** deleted by Terraform (it was created manually). Delete it separately in the Lex console if no longer needed.
+> After a full teardown, the next deploy will provision a new Connect instance. You will need to claim a new phone number and associate it with `MainIVRFlow` (Step 5 of the setup guide).
+
+> The Lex v2 bot (`SmartCXOrderBot`) is managed by Terraform and is destroyed automatically with `terraform destroy`.
 
 ---
 
@@ -395,4 +335,15 @@ Ensure both agents are set to **Available** in the CCP. Soft phone agents must h
 
 **Lex bot not appearing in Connect**
 
-Confirm the alias points to a published version (not `$LATEST`). Re-associate via Connect console → Channels → Amazon Lex if needed.
+The bot association is performed by `deploy.sh` via `aws connect associate-bot` after Terraform apply. If the bot is missing, re-run `deploy.sh` or run the association manually:
+```bash
+BOT_ID=$(cd infrastructure/terraform && terraform output -raw lex_bot_id)
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+ALIAS_ID=$(aws lexv2-models list-bot-aliases --bot-id "$BOT_ID" --region us-east-1 \
+  --query "botAliasSummaries[?botAliasName=='live'].botAliasId | [0]" --output text)
+aws connect associate-bot \
+  --instance-id $(cd infrastructure/terraform && terraform output -raw connect_instance_id) \
+  --lex-v2-bot "AliasArn=arn:aws:lex:us-east-1:${ACCOUNT_ID}:bot-alias/${BOT_ID}/${ALIAS_ID}" \
+  --region us-east-1
+```
+Note: `associate-lex-bot` is Lex v1 only — `associate-bot` supports both v1 and v2.

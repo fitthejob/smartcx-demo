@@ -33,7 +33,3 @@ output "recordings_bucket_name" {
   value       = aws_s3_bucket.recordings.id
 }
 
-output "lex_bot_alias_arn" {
-  description = "Lex v2 bot alias ARN — passed to deploy.sh for post-apply CLI association"
-  value       = var.lex_bot_alias_arn
-}

@@ -17,10 +17,6 @@ variable "sentiment_threshold" {
   default     = "-0.5"
 }
 
-variable "lex_bot_alias_arn" {
-  description = "ARN of the Lex v2 bot alias to associate with the Connect instance. Must point to a published version — $LATEST is rejected by Connect. Build the bot manually first (see docs/setup-guide.md step 2)."
-}
-
 variable "agent_password" {
   description = "Initial password for demo-agent and billing-agent Connect users. Must meet Connect policy: 8+ chars, upper, lower, number, special character. Never commit this value — set it in terraform.tfvars."
   sensitive   = true

@@ -60,7 +60,7 @@ terraform apply -auto-approve -input=false
 echo ""
 echo "==> [3/8] Reading Terraform outputs"
 INSTANCE_ID=$(terraform output -raw connect_instance_id)
-LEX_ALIAS_ARN=$(terraform output -raw lex_bot_alias_arn)
+LEX_BOT_ID=$(terraform output -raw lex_bot_id)
 API_ENDPOINT=$(terraform output -raw api_endpoint)
 BUCKET_NAME=$(terraform output -raw bucket_name)
 DISTRIBUTION_ID=$(terraform output -raw distribution_id)
@@ -68,25 +68,37 @@ ORDERS_TABLE=$(terraform output -raw orders_table_name)
 DLQ_URL=$(terraform output -raw contact_lens_dlq_url)
 DASHBOARD_URL=$(terraform output -raw dashboard_url)
 
+# Construct the Lex alias ARN from its parts.
+# Neither list-bot-aliases nor describe-bot-alias returns an ARN field —
+# the ARN must be built from: region, account ID, bot ID, and alias ID.
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+LEX_ALIAS_ID=$(aws lexv2-models list-bot-aliases \
+  --bot-id "${LEX_BOT_ID}" \
+  --region "${REGION}" \
+  --query "botAliasSummaries[?botAliasName=='live'].botAliasId | [0]" \
+  --output text)
+LEX_ALIAS_ARN="arn:aws:lex:${REGION}:${ACCOUNT_ID}:bot-alias/${LEX_BOT_ID}/${LEX_ALIAS_ID}"
+
 echo "    Connect instance: ${INSTANCE_ID}"
 echo "    API endpoint:     ${API_ENDPOINT}"
 echo "    Dashboard bucket: ${BUCKET_NAME}"
+echo "    Lex alias ARN:    ${LEX_ALIAS_ARN}"
 
 # ── Step 4: Post-apply Connect configuration ──────────────────────────────────
 echo ""
 echo "==> [4/8] Enabling contact flow logs"
 aws connect update-instance-attribute \
   --instance-id "${INSTANCE_ID}" \
-  --attribute-type CONTACT_FLOW_LOGS \
+  --attribute-type CONTACTFLOW_LOGS \
   --value true \
   --region "${REGION}"
 
 echo "==> [4/8] Associating Lex v2 bot with Connect"
-# aws_connect_bot_association only supports Lex v1 — v2 association done via CLI.
-# See infrastructure/terraform/modules/connect/main.tf for explanation.
-aws connect associate-lex-bot \
+# associate-lex-bot is Lex v1 only. associate-bot supports both v1 and v2.
+# --lex-v2-bot takes a JSON object with aliasArn key.
+aws connect associate-bot \
   --instance-id "${INSTANCE_ID}" \
-  --lex-v2-bot "aliasArn=${LEX_ALIAS_ARN}" \
+  --lex-v2-bot "AliasArn=${LEX_ALIAS_ARN}" \
   --region "${REGION}"
 
 # ── Step 5: Build dashboard ───────────────────────────────────────────────────
@@ -94,7 +106,7 @@ echo ""
 echo "==> [5/8] Building React dashboard"
 cd "${REPO_ROOT}/dashboard"
 echo "VITE_API_BASE_URL=${API_ENDPOINT}" > .env
-npm install --silent
+npm install
 npm run build
 
 # ── Step 6: Deploy dashboard to S3 + invalidate CloudFront ───────────────────
