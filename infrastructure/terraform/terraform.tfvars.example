@@ -10,3 +10,7 @@ sentiment_threshold = "-0.5"
 # Must meet Connect policy: 8+ chars, upper, lower, number, special character.
 # Example: DemoAgent1!
 agent_password = "CHANGE_ME"
+
+# Email address for the Cognito dashboard login user.
+# This is the account you use to sign in to the SmartCX dashboard.
+admin_email = "you@example.com"

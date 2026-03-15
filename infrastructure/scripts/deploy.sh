@@ -12,7 +12,7 @@
 #   --region    AWS region (default: us-east-1)
 #
 # Prerequisites:
-#   - terraform.tfvars populated (including lex_bot_alias_arn)
+#   - terraform.tfvars populated (project_name, agent_password, admin_email, alert_email)
 #   - AWS CLI configured with sufficient permissions
 #   - Python 3.12, Node.js 20+, Terraform >= 1.6 on PATH
 
@@ -67,6 +67,9 @@ DISTRIBUTION_ID=$(terraform output -raw distribution_id)
 ORDERS_TABLE=$(terraform output -raw orders_table_name)
 DLQ_URL=$(terraform output -raw contact_lens_dlq_url)
 DASHBOARD_URL=$(terraform output -raw dashboard_url)
+COGNITO_USER_POOL_ID=$(terraform output -raw cognito_user_pool_id)
+COGNITO_CLIENT_ID=$(terraform output -raw cognito_client_id)
+COGNITO_REGION=$(terraform output -raw cognito_region)
 
 # Construct the Lex alias ARN from its parts.
 # Neither list-bot-aliases nor describe-bot-alias returns an ARN field —
@@ -79,10 +82,11 @@ LEX_ALIAS_ID=$(aws lexv2-models list-bot-aliases \
   --output text)
 LEX_ALIAS_ARN="arn:aws:lex:${REGION}:${ACCOUNT_ID}:bot-alias/${LEX_BOT_ID}/${LEX_ALIAS_ID}"
 
-echo "    Connect instance: ${INSTANCE_ID}"
-echo "    API endpoint:     ${API_ENDPOINT}"
-echo "    Dashboard bucket: ${BUCKET_NAME}"
-echo "    Lex alias ARN:    ${LEX_ALIAS_ARN}"
+echo "    Connect instance:  ${INSTANCE_ID}"
+echo "    API endpoint:      ${API_ENDPOINT}"
+echo "    Dashboard bucket:  ${BUCKET_NAME}"
+echo "    Lex alias ARN:     ${LEX_ALIAS_ARN}"
+echo "    Cognito pool:      ${COGNITO_USER_POOL_ID}"
 
 # ── Step 4: Post-apply Connect configuration ──────────────────────────────────
 echo ""
@@ -105,7 +109,12 @@ aws connect associate-bot \
 echo ""
 echo "==> [5/8] Building React dashboard"
 cd "${REPO_ROOT}/dashboard"
-echo "VITE_API_BASE_URL=${API_ENDPOINT}" > .env
+cat > .env <<ENV
+VITE_API_BASE_URL=${API_ENDPOINT}
+VITE_COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID}
+VITE_COGNITO_CLIENT_ID=${COGNITO_CLIENT_ID}
+VITE_COGNITO_REGION=${COGNITO_REGION}
+ENV
 npm install
 npm run build
 
@@ -158,6 +167,7 @@ echo ""
 echo "  Next manual steps:"
 echo "  1. Claim a phone number in the Connect console and"
 echo "     associate it with MainIVRFlow"
-echo "  2. Create demo-agent and billing-agent users"
-echo "     (see docs/setup-guide.md step 5)"
+echo "  2. Sign in to the dashboard — you will be prompted to"
+echo "     set a permanent password on first login"
+echo "     (see docs/setup-guide.md for details)"
 echo "============================================================"

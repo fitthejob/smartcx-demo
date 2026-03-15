@@ -52,3 +52,18 @@ output "contact_lens_dlq_url" {
 output "contact_lens_dlq_name" {
   value = module.lambda.contact_lens_dlq_name
 }
+
+output "cognito_user_pool_id" {
+  description = "Cognito User Pool ID (set as VITE_COGNITO_USER_POOL_ID in dashboard/.env)"
+  value       = module.cognito.user_pool_id
+}
+
+output "cognito_client_id" {
+  description = "Cognito App Client ID (set as VITE_COGNITO_CLIENT_ID in dashboard/.env)"
+  value       = module.cognito.client_id
+}
+
+output "cognito_region" {
+  description = "AWS region of the Cognito pool (set as VITE_COGNITO_REGION in dashboard/.env)"
+  value       = module.cognito.region
+}

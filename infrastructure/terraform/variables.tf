@@ -21,3 +21,7 @@ variable "agent_password" {
   description = "Initial password for demo-agent and billing-agent Connect users. Must meet Connect policy: 8+ chars, upper, lower, number, special character. Never commit this value — set it in terraform.tfvars."
   sensitive   = true
 }
+
+variable "admin_email" {
+  description = "Email address for the Cognito dashboard admin user. Never commit this value — set it in terraform.tfvars."
+}

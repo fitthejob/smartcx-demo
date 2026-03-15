@@ -1,3 +1,4 @@
-variable "project_name"      {}
-variable "aws_region"        {}
-variable "dashboard_api_arn" {}
+variable "project_name"          {}
+variable "aws_region"            {}
+variable "dashboard_api_arn"     {}
+variable "cognito_user_pool_arn" {}

@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useContactsData } from "./hooks/useContactsData";
+import { useAuth } from "./auth/useAuth";
+import LoginPage from "./components/LoginPage";
 import QueueMetrics from "./components/QueueMetrics";
 import SentimentChart from "./components/SentimentChart";
 import QueueLivePanel from "./components/QueueLivePanel";
@@ -12,8 +14,19 @@ function fmtTimestamp(date) {
 }
 
 export default function App() {
+  const { user, loading: authLoading, signOut } = useAuth();
   const [autoRefresh, setAutoRefresh] = useState(true);
   const { metrics, contacts, loading, error, lastRefreshed } = useContactsData(autoRefresh);
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-900 text-slate-400 text-sm">
+        Loading…
+      </div>
+    );
+  }
+
+  if (!user) return <LoginPage />;
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
@@ -37,6 +50,12 @@ export default function App() {
               />
               Auto-refresh
             </label>
+            <button
+              onClick={signOut}
+              className="rounded-lg border border-slate-600 px-3 py-1 text-xs font-medium text-slate-400 hover:border-slate-400 hover:text-slate-200"
+            >
+              Sign out
+            </button>
           </div>
         </div>
       </header>

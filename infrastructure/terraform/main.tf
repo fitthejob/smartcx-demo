@@ -59,11 +59,18 @@ module "lambda" {
   recordings_bucket_name   = module.connect.recordings_bucket_name
 }
 
+module "cognito" {
+  source       = "./modules/cognito"
+  project_name = var.project_name
+  admin_email  = var.admin_email
+}
+
 module "api_gateway" {
-  source            = "./modules/api-gateway"
-  project_name      = var.project_name
-  aws_region        = var.aws_region
-  dashboard_api_arn = module.lambda.dashboard_api_arn
+  source                = "./modules/api-gateway"
+  project_name          = var.project_name
+  aws_region            = var.aws_region
+  dashboard_api_arn     = module.lambda.dashboard_api_arn
+  cognito_user_pool_arn = module.cognito.user_pool_arn
 }
 
 module "eventbridge" {

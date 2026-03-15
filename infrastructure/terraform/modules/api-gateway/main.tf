@@ -1,13 +1,27 @@
 # Module: api-gateway
 # Provisions the REST API with four endpoints backed by dashboard-api Lambda proxy.
-# All routes have CORS OPTIONS methods.
+# All GET routes require a valid Cognito JWT (Authorization header).
+# OPTIONS methods stay NONE — browser preflight requests carry no auth header.
 # Stage "demo" has X-Ray tracing and throttling enabled.
-#
-# TODO: production hardening — add aws_api_gateway_usage_plan and API key auth
 
 resource "aws_api_gateway_rest_api" "dashboard" {
   name        = "${var.project_name}-dashboard-api"
   description = "SmartCX Demo dashboard API"
+}
+
+# ─────────────────────────────────────────────
+# Cognito authorizer
+# ─────────────────────────────────────────────
+
+resource "aws_api_gateway_authorizer" "cognito" {
+  name          = "${var.project_name}-cognito-auth"
+  rest_api_id   = aws_api_gateway_rest_api.dashboard.id
+  type          = "COGNITO_USER_POOLS"
+  provider_arns = [var.cognito_user_pool_arn]
+
+  # Reads the JWT from the Authorization header.
+  # API Gateway validates signature, expiry, aud, and iss against the pool's JWKS endpoint.
+  identity_source = "method.request.header.Authorization"
 }
 
 # ─────────────────────────────────────────────
@@ -24,7 +38,8 @@ resource "aws_api_gateway_method" "contacts_get" {
   rest_api_id   = aws_api_gateway_rest_api.dashboard.id
   resource_id   = aws_api_gateway_resource.contacts.id
   http_method   = "GET"
-  authorization = "NONE"
+  authorization = "COGNITO_USER_POOLS"
+  authorizer_id = aws_api_gateway_authorizer.cognito.id
 }
 
 resource "aws_api_gateway_integration" "contacts_get" {
@@ -74,7 +89,7 @@ resource "aws_api_gateway_integration_response" "contacts_options_200" {
   status_code = "200"
 
   response_parameters = {
-    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type'"
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,Authorization'"
     "method.response.header.Access-Control-Allow-Methods" = "'GET,OPTIONS'"
     "method.response.header.Access-Control-Allow-Origin"  = "'*'"
   }
@@ -96,7 +111,8 @@ resource "aws_api_gateway_method" "contacts_flagged_get" {
   rest_api_id   = aws_api_gateway_rest_api.dashboard.id
   resource_id   = aws_api_gateway_resource.contacts_flagged.id
   http_method   = "GET"
-  authorization = "NONE"
+  authorization = "COGNITO_USER_POOLS"
+  authorizer_id = aws_api_gateway_authorizer.cognito.id
 }
 
 resource "aws_api_gateway_integration" "contacts_flagged_get" {
@@ -146,7 +162,7 @@ resource "aws_api_gateway_integration_response" "contacts_flagged_options_200" {
   status_code = "200"
 
   response_parameters = {
-    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type'"
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,Authorization'"
     "method.response.header.Access-Control-Allow-Methods" = "'GET,OPTIONS'"
     "method.response.header.Access-Control-Allow-Origin"  = "'*'"
   }
@@ -168,7 +184,8 @@ resource "aws_api_gateway_method" "metrics_get" {
   rest_api_id   = aws_api_gateway_rest_api.dashboard.id
   resource_id   = aws_api_gateway_resource.metrics.id
   http_method   = "GET"
-  authorization = "NONE"
+  authorization = "COGNITO_USER_POOLS"
+  authorizer_id = aws_api_gateway_authorizer.cognito.id
 }
 
 resource "aws_api_gateway_integration" "metrics_get" {
@@ -218,7 +235,7 @@ resource "aws_api_gateway_integration_response" "metrics_options_200" {
   status_code = "200"
 
   response_parameters = {
-    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type'"
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,Authorization'"
     "method.response.header.Access-Control-Allow-Methods" = "'GET,OPTIONS'"
     "method.response.header.Access-Control-Allow-Origin"  = "'*'"
   }
@@ -246,7 +263,8 @@ resource "aws_api_gateway_method" "queues_live_get" {
   rest_api_id   = aws_api_gateway_rest_api.dashboard.id
   resource_id   = aws_api_gateway_resource.queues_live.id
   http_method   = "GET"
-  authorization = "NONE"
+  authorization = "COGNITO_USER_POOLS"
+  authorizer_id = aws_api_gateway_authorizer.cognito.id
 }
 
 resource "aws_api_gateway_integration" "queues_live_get" {
@@ -296,7 +314,7 @@ resource "aws_api_gateway_integration_response" "queues_live_options_200" {
   status_code = "200"
 
   response_parameters = {
-    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type'"
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,Authorization'"
     "method.response.header.Access-Control-Allow-Methods" = "'GET,OPTIONS'"
     "method.response.header.Access-Control-Allow-Origin"  = "'*'"
   }
@@ -311,13 +329,14 @@ resource "aws_api_gateway_integration_response" "queues_live_options_200" {
 resource "aws_api_gateway_deployment" "demo" {
   rest_api_id = aws_api_gateway_rest_api.dashboard.id
 
-  # Force redeployment when any method or integration changes
+  # Force redeployment when any method, integration, or authorizer changes
   triggers = {
     redeployment = sha1(jsonencode([
       aws_api_gateway_integration.contacts_get,
       aws_api_gateway_integration.contacts_flagged_get,
       aws_api_gateway_integration.metrics_get,
       aws_api_gateway_integration.queues_live_get,
+      aws_api_gateway_authorizer.cognito,
     ]))
   }
 
