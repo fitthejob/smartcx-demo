@@ -377,3 +377,33 @@ resource "aws_api_gateway_method_settings" "all" {
 
   depends_on = [aws_api_gateway_stage.demo]
 }
+
+# ─────────────────────────────────────────────
+# Gateway responses — add CORS headers to auth errors
+# ─────────────────────────────────────────────
+#
+# By default, API Gateway 4xx error responses (401 Unauthorized from the
+# Cognito authorizer, 403 Forbidden) do not include CORS headers. The browser
+# then reports a CORS error instead of the actual auth error, making debugging
+# confusing. These gateway responses inject the Allow-Origin header so the
+# browser can read the status code and show a proper error.
+
+resource "aws_api_gateway_gateway_response" "unauthorized" {
+  rest_api_id   = aws_api_gateway_rest_api.dashboard.id
+  response_type = "UNAUTHORIZED"
+  status_code   = "401"
+
+  response_parameters = {
+    "gatewayresponse.header.Access-Control-Allow-Origin" = "'*'"
+  }
+}
+
+resource "aws_api_gateway_gateway_response" "access_denied" {
+  rest_api_id   = aws_api_gateway_rest_api.dashboard.id
+  response_type = "ACCESS_DENIED"
+  status_code   = "403"
+
+  response_parameters = {
+    "gatewayresponse.header.Access-Control-Allow-Origin" = "'*'"
+  }
+}

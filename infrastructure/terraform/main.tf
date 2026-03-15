@@ -60,9 +60,10 @@ module "lambda" {
 }
 
 module "cognito" {
-  source       = "./modules/cognito"
-  project_name = var.project_name
-  admin_email  = var.admin_email
+  source              = "./modules/cognito"
+  project_name        = var.project_name
+  admin_email         = var.admin_email
+  admin_temp_password = var.admin_temp_password
 }
 
 module "api_gateway" {

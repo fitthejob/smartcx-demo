@@ -58,6 +58,7 @@ resource "null_resource" "admin_user" {
         --user-pool-id "${aws_cognito_user_pool.this.id}" \
         --username "${var.admin_email}" \
         --user-attributes Name=email,Value="${var.admin_email}" Name=email_verified,Value=true \
+        --temporary-password "${var.admin_temp_password}" \
         --message-action SUPPRESS \
         --region "${data.aws_region.current.name}" 2>&1 | grep -v UsernameExistsException || true
       echo "    Cognito admin user: ${var.admin_email}"

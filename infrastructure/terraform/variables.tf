@@ -25,3 +25,8 @@ variable "agent_password" {
 variable "admin_email" {
   description = "Email address for the Cognito dashboard admin user. Never commit this value — set it in terraform.tfvars."
 }
+
+variable "admin_temp_password" {
+  description = "Temporary password for the Cognito dashboard admin user. Must be 12+ chars with upper, lower, number. You will be prompted to set a permanent password on first login. Never commit this value — set it in terraform.tfvars."
+  sensitive   = true
+}

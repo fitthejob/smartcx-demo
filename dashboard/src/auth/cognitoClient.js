@@ -19,7 +19,13 @@ const userPool = new CognitoUserPool({
 export function signIn(email, password) {
   return new Promise((resolve, reject) => {
     const cognitoUser = new CognitoUser({ Username: email, Pool: userPool });
-    const authDetails = new AuthenticationDetails({ Username: email, Password: password });
+    // AuthFlow must be set explicitly — default is USER_SRP_AUTH which requires
+    // SRP crypto that the app client is not configured for.
+    const authDetails = new AuthenticationDetails({
+      Username: email,
+      Password: password,
+      AuthFlow: "USER_PASSWORD_AUTH",
+    });
 
     cognitoUser.authenticateUser(authDetails, {
       onSuccess: (session) => resolve(session),

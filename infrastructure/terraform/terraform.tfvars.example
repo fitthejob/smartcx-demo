@@ -14,3 +14,8 @@ agent_password = "CHANGE_ME"
 # Email address for the Cognito dashboard login user.
 # This is the account you use to sign in to the SmartCX dashboard.
 admin_email = "you@example.com"
+
+# Temporary password for the Cognito dashboard user.
+# Must be 12+ chars with uppercase, lowercase, and a number.
+# You will be prompted to set a permanent password on first login.
+admin_temp_password = "CHANGE_ME_Temp1"
