@@ -19,13 +19,10 @@ const userPool = new CognitoUserPool({
 export function signIn(email, password) {
   return new Promise((resolve, reject) => {
     const cognitoUser = new CognitoUser({ Username: email, Pool: userPool });
-    // AuthFlow must be set explicitly — default is USER_SRP_AUTH which requires
-    // SRP crypto that the app client is not configured for.
-    const authDetails = new AuthenticationDetails({
-      Username: email,
-      Password: password,
-      AuthFlow: "USER_PASSWORD_AUTH",
-    });
+    // Must call setAuthenticationFlowType before authenticateUser —
+    // AuthenticationDetails does not control the flow; this method does.
+    cognitoUser.setAuthenticationFlowType("USER_PASSWORD_AUTH");
+    const authDetails = new AuthenticationDetails({ Username: email, Password: password });
 
     cognitoUser.authenticateUser(authDetails, {
       onSuccess: (session) => resolve(session),
@@ -52,22 +49,21 @@ export function completeNewPassword(cognitoUser, newPassword) {
 }
 
 /**
- * Returns the current user's ID token JWT string, or null if not signed in.
- * The SDK auto-refreshes the session using the refresh token if needed.
+ * Returns a Promise resolving to the current ID token JWT string,
+ * or null if not signed in. The SDK auto-refreshes if the token is expired.
  */
 export function getIdToken() {
-  const cognitoUser = userPool.getCurrentUser();
-  if (!cognitoUser) return null;
-
-  // getSession is async but we call it synchronously here; the SDK uses
-  // localStorage-cached tokens and only hits the network to refresh.
-  let token = null;
-  cognitoUser.getSession((err, session) => {
-    if (!err && session.isValid()) {
-      token = session.getIdToken().getJwtToken();
-    }
+  return new Promise((resolve) => {
+    const cognitoUser = userPool.getCurrentUser();
+    if (!cognitoUser) return resolve(null);
+    cognitoUser.getSession((err, session) => {
+      if (!err && session.isValid()) {
+        resolve(session.getIdToken().getJwtToken());
+      } else {
+        resolve(null);
+      }
+    });
   });
-  return token;
 }
 
 /**

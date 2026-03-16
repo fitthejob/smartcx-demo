@@ -5,9 +5,9 @@ Simulates e-commerce customer support for a fictional company "ShopFlow".
 
 ## Architecture
 
-![Architecture Diagram](docs/architecture-diagram.png)
+**AWS Services:** Amazon Connect · Lex v2 · Lambda · DynamoDB · API Gateway · Cognito · Contact Lens · EventBridge · SNS · S3 · CloudFront
 
-**AWS Services:** Amazon Connect · Lex v2 · Lambda · DynamoDB · API Gateway · Contact Lens · EventBridge · SNS · S3 · CloudFront · Terraform
+Everything is fully managed by Terraform. No manual console steps required beyond claiming a phone number (a 30-day AWS hold makes automation unreliable).
 
 ## Prerequisites
 
@@ -19,64 +19,97 @@ Simulates e-commerce customer support for a fictional company "ShopFlow".
 
 ## Quick Start
 
-> **Before running anything:** Build the Lex v2 bot manually in the AWS console — see [docs/setup-guide.md](docs/setup-guide.md) Step 2. This must happen before `terraform apply`.
-
 ```bash
-# 1. Fill in Terraform variables (never commit this file)
-edit infrastructure/terraform/terraform.tfvars
+# 1. Copy and fill in your variables (never commit terraform.tfvars)
+cp infrastructure/terraform/terraform.tfvars.example infrastructure/terraform/terraform.tfvars
+# Edit: aws_region, agent_password, admin_email, admin_temp_password, alert_email
 
-# 2. Deploy infrastructure
-cd infrastructure/terraform
-terraform init
-terraform apply
-
-# 3. Post-apply: enable flow logs and associate Lex bot
-infrastructure/scripts/deploy.sh --post-apply
-
-# 4. Seed demo data, build and upload dashboard
-infrastructure/scripts/deploy.sh --seed --dashboard
+# 2. Run the full deploy (Terraform + Connect config + dashboard build + S3 upload)
+./infrastructure/scripts/deploy.sh --seed
 ```
 
-See [docs/setup-guide.md](docs/setup-guide.md) for the complete step-by-step guide including agent user creation, phone number claiming, and end-to-end verification.
+On first login to the dashboard you will be prompted to set a permanent password.
+
+See [docs/setup-guide.md](docs/setup-guide.md) for the complete guide including phone number claiming and end-to-end verification.
 
 ## Project Structure
 
 ```
 smartcx-demo/
 ├── infrastructure/
-│   ├── terraform/              # Modular IaC — one module per AWS service group
-│   │   └── modules/            # dynamodb, lambda, connect, api-gateway, cloudfront,
-│   │                           # sns, eventbridge, monitoring
-│   └── scripts/                # deploy.sh, teardown.sh, seed_dynamodb.py, validate_connect.py
+│   ├── terraform/
+│   │   ├── main.tf                 # Root module — wires all service modules together
+│   │   ├── variables.tf            # Input variables (agent_password, admin_email, etc.)
+│   │   ├── outputs.tf              # Terraform outputs consumed by deploy.sh
+│   │   ├── terraform.tfvars.example
+│   │   └── modules/
+│   │       ├── connect/            # Connect instance, queues, flows, hours, users
+│   │       ├── lex/                # Lex v2 bot, intents, version, live alias (null_resource workaround)
+│   │       ├── cognito/            # User pool, app client, admin user
+│   │       ├── lambda/             # All three Lambda functions + IAM roles
+│   │       ├── api-gateway/        # REST API, Cognito authorizer, CORS, throttling
+│   │       ├── dynamodb/           # orders, contacts, flagged-contacts tables
+│   │       ├── cloudfront/         # S3 origin + CloudFront distribution for dashboard
+│   │       ├── sns/                # Alert topic + email subscription
+│   │       ├── eventbridge/        # Contact Lens post-call event rule
+│   │       └── monitoring/         # CloudWatch alarms for Lambda errors and DLQ depth
+│   └── scripts/
+│       ├── deploy.sh               # Full deploy orchestrator (8 steps)
+│       ├── teardown.sh             # Full destroy or --data-only reset
+│       ├── seed_dynamodb.py        # Seeds orders table with demo data
+│       └── validate_connect.py     # Post-deploy health check
 ├── lambda/
-│   ├── order-lookup/           # Order status lookup (invoked by Connect contact flow)
-│   ├── contact-lens-handler/   # Sentiment flagging (triggered by EventBridge)
-│   └── dashboard-api/          # Analytics API — /contacts, /metrics, /queues/live
+│   ├── order-lookup/               # Order status lookup (invoked by Connect IVR)
+│   ├── contact-lens-handler/       # Sentiment flagging (triggered by EventBridge)
+│   └── dashboard-api/              # Analytics API — /contacts, /metrics, /queues/live
 ├── connect/
-│   ├── flows/                  # Contact flow JSON — version-controlled source of truth
-│   └── lex/                    # Lex v2 bot definition export
-├── dashboard/                  # React 18 + Vite + Tailwind + Recharts analytics dashboard
+│   └── flows/                      # Contact flow JSON (templatefile() — no hardcoded ARNs)
+├── dashboard/                      # React 18 + Vite + Tailwind + Recharts
 │   └── src/
-│       ├── components/         # QueueMetrics, SentimentChart, QueueLivePanel, ContactsTable
-│       ├── hooks/              # useContactsData, useQueueLive
-│       └── api/                # dashboardApi.js (Axios, VITE_API_BASE_URL)
-└── docs/                       # setup-guide.md, demo-script.md, architecture diagram
+│       ├── auth/                   # Cognito SDK client, useAuth hook
+│       ├── components/             # LoginPage, QueueMetrics, SentimentChart, QueueLivePanel, ContactsTable
+│       ├── hooks/                  # useContactsData, useQueueLive
+│       └── api/                    # dashboardApi.js — axios + JWT interceptor
+└── docs/
+    ├── setup-guide.md
+    ├── demo-script.md
+    ├── project-retrospective.md
+    └── telecom-to-connect-bridge.md
 ```
+
+## Authentication
+
+The dashboard is protected by Amazon Cognito. The API Gateway rejects all unauthenticated requests before any Lambda runs — nothing is publicly accessible.
+
+- User pool and app client are fully managed by Terraform
+- Admin user is created automatically during `terraform apply` using credentials from `terraform.tfvars`
+- The dashboard uses `amazon-cognito-identity-js` (no Amplify) — JWT is attached to every API call via an axios interceptor
+- On first login, Cognito requires a permanent password to be set
 
 ## Teardown
 
 ```bash
-infrastructure/scripts/teardown.sh
+# Reset demo data only (clears contacts, re-seeds orders — leaves infrastructure up)
+./infrastructure/scripts/teardown.sh --data-only
+
+# Full destroy (removes all AWS resources)
+./infrastructure/scripts/teardown.sh
 ```
 
-> **Cost:** ~$1–3/month idle (Connect phone number + CloudFront). Set a $20/month AWS Budget alert to stay safe.
+## Idle Cost
+
+~$1–2/month (CloudWatch log storage). All other services are pay-per-use and cost $0 at idle. Full teardown drops cost to $0.
 
 ## Key Design Decisions
 
 | Decision | Rationale |
 |---|---|
-| Lex v2 bot built manually | Terraform AWS provider v5.x has no Lex v2 bot content support |
-| Lex↔Connect association via CLI | `aws_connect_bot_association` only supports Lex v1 (name-based) |
-| Contact flow logs enabled via CLI | Not a Terraform-managed instance attribute |
+| Lex v2 alias via `null_resource` | `aws_lexv2models_bot_alias` does not exist in the Terraform AWS provider v5.x |
+| Alias ARN constructed in deploy.sh | `list-bot-aliases` does not return an ARN field — built from region + account + bot ID + alias ID |
+| Contact flows use `templatefile()` | Prevents hardcoded ARNs from breaking after teardown/redeploy |
+| Cognito authorizer on API Gateway | Rejects unauthenticated requests at the gateway layer before Lambda runs |
+| `USER_PASSWORD_AUTH` flow | SPA client cannot use SRP; `setAuthenticationFlowType()` required before `authenticateUser()` |
+| `admin_temp_password` via env var in `null_resource` | Shell interpolation mangles special characters — env var avoids all quoting issues |
+| `CONTACT_TRACE_RECORDS` not provisioned | Requires Kinesis (not S3); Contact Lens events flow via EventBridge + Lambda instead |
 | EventBridge retries disabled on contact-lens-handler | DLQ used instead to prevent duplicate contact records |
-| All Lambda responses as strings | Amazon Connect requires string values from Lambda invoke blocks |
+| Lambda `requirements.txt` runtime-only | Test deps (pytest, moto) bloat packages past the 70MB Lambda upload limit |

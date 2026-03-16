@@ -6,22 +6,22 @@ const api = axios.create({
 });
 
 // Attach the Cognito ID token as a Bearer token before every request.
-// The SDK auto-refreshes the session from localStorage if it has expired.
-api.interceptors.request.use((config) => {
-  const token = getIdToken();
+// getIdToken is async — the SDK refreshes the session from localStorage if expired.
+api.interceptors.request.use(async (config) => {
+  const token = await getIdToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
-// On 401, clear auth state and reload so the login page is shown.
+// On 401, clear auth state — useAuth will detect no user and show LoginPage.
+// No reload: a reload loop would occur if the token is missing or invalid.
 api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
       signOut();
-      window.location.reload();
     }
     return Promise.reject(err);
   }

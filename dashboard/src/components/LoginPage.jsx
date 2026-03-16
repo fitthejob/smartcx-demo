@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { useAuth } from "../auth/useAuth";
 
-export default function LoginPage() {
-  const { signIn, completeNewPassword, newPasswordRequired, error } = useAuth();
+// Props are passed from App.jsx which owns the single useAuth instance,
+// so LoginPage and the dashboard share the same auth state.
+export default function LoginPage({ signIn, completeNewPassword, newPasswordRequired, error }) {
 
-  const [email, setEmail]           = useState("");
-  const [password, setPassword]     = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [submitting, setSubmitting]   = useState(false);
+  const [email, setEmail]             = useState("");
+  const [password, setPassword]       = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [newPassword, setNewPassword]   = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [submitting, setSubmitting]     = useState(false);
 
   async function handleSignIn(e) {
     e.preventDefault();
@@ -52,15 +54,24 @@ export default function LoginPage() {
               <label className="mb-1 block text-xs font-medium text-slate-400">
                 New password
               </label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-                minLength={12}
-                className="w-full rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
-                placeholder="At least 12 characters"
-              />
+              <div className="relative">
+                <input
+                  type={showNewPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={12}
+                  className="w-full rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 pr-16 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                  placeholder="At least 12 characters"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-200"
+                >
+                  {showNewPassword ? "Hide" : "Show"}
+                </button>
+              </div>
             </div>
             <button
               type="submit"
@@ -91,15 +102,24 @@ export default function LoginPage() {
               <label className="mb-1 block text-xs font-medium text-slate-400">
                 Password
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-                className="w-full rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
-                placeholder="••••••••••••"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  className="w-full rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 pr-16 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                  placeholder="••••••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-200"
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
             </div>
             <button
               type="submit"

@@ -14,7 +14,8 @@ function fmtTimestamp(date) {
 }
 
 export default function App() {
-  const { user, loading: authLoading, signOut } = useAuth();
+  // useAuth is owned here so LoginPage and App share the same auth state instance
+  const { user, loading: authLoading, signOut, error: authError, newPasswordRequired, signIn, completeNewPassword } = useAuth();
   const [autoRefresh, setAutoRefresh] = useState(true);
   const { metrics, contacts, loading, error, lastRefreshed } = useContactsData(autoRefresh);
 
@@ -26,7 +27,16 @@ export default function App() {
     );
   }
 
-  if (!user) return <LoginPage />;
+  if (!user) {
+    return (
+      <LoginPage
+        signIn={signIn}
+        completeNewPassword={completeNewPassword}
+        newPasswordRequired={newPasswordRequired}
+        error={authError}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">

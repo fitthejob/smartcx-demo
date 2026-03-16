@@ -53,12 +53,16 @@ resource "null_resource" "admin_user" {
   }
 
   provisioner "local-exec" {
+    # Pass the password as an env var so special characters are never shell-interpolated.
+    environment = {
+      ADMIN_TEMP_PASSWORD = var.admin_temp_password
+    }
     command = <<-EOT
       aws cognito-idp admin-create-user \
         --user-pool-id "${aws_cognito_user_pool.this.id}" \
         --username "${var.admin_email}" \
         --user-attributes Name=email,Value="${var.admin_email}" Name=email_verified,Value=true \
-        --temporary-password "${var.admin_temp_password}" \
+        --temporary-password "$ADMIN_TEMP_PASSWORD" \
         --message-action SUPPRESS \
         --region "${data.aws_region.current.name}" 2>&1 | grep -v UsernameExistsException || true
       echo "    Cognito admin user: ${var.admin_email}"
