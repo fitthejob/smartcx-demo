@@ -72,9 +72,7 @@ smartcx-demo/
 │       └── api/                    # dashboardApi.js — axios + JWT interceptor
 └── docs/
     ├── setup-guide.md
-    ├── demo-script.md
-    ├── project-retrospective.md
-    └── telecom-to-connect-bridge.md
+    └── connect-flow-json-reference.md
 ```
 
 ## Authentication

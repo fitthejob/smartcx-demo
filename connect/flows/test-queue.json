@@ -1,0 +1,46 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "1632144f-f9b6-4476-af9c-6909ea408866",
+  "Metadata": {
+    "entryPointPosition": { "x": 20, "y": 20 },
+    "ActionMetadata": {
+      "1632144f-f9b6-4476-af9c-6909ea408866": { "position": { "x": 20,  "y": 20 } },
+      "551aa79a-2784-4a06-b1e9-d278de312f73": { "position": { "x": 240, "y": 20 } },
+      "71eff62d-80b0-4215-9ec1-e3f85780172d": { "position": { "x": 460, "y": 20 } }
+    },
+    "Annotations": []
+  },
+  "Actions": [
+    {
+      "Identifier": "1632144f-f9b6-4476-af9c-6909ea408866",
+      "Type": "UpdateContactTargetQueue",
+      "Parameters": {
+        "QueueId": "arn:aws:connect:us-east-1:205500199161:instance/e94b80d6-37f8-4257-930c-e8cbc6e76252/queue/ac71c826-608e-4d42-b6ec-f82d8e1b3f22"
+      },
+      "Transitions": {
+        "NextAction": "551aa79a-2784-4a06-b1e9-d278de312f73",
+        "Errors": [{ "NextAction": "71eff62d-80b0-4215-9ec1-e3f85780172d", "ErrorType": "NoMatchingError" }],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "551aa79a-2784-4a06-b1e9-d278de312f73",
+      "Type": "TransferContactToQueue",
+      "Parameters": {},
+      "Transitions": {
+        "NextAction": "71eff62d-80b0-4215-9ec1-e3f85780172d",
+        "Errors": [
+          { "NextAction": "71eff62d-80b0-4215-9ec1-e3f85780172d", "ErrorType": "NoMatchingError" },
+          { "NextAction": "71eff62d-80b0-4215-9ec1-e3f85780172d", "ErrorType": "QueueAtCapacity" }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "71eff62d-80b0-4215-9ec1-e3f85780172d",
+      "Type": "DisconnectParticipant",
+      "Parameters": {},
+      "Transitions": {}
+    }
+  ]
+}
