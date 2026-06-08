@@ -1,4 +1,4 @@
-# SmartCX Demo
+# ShopFlowCX Demo
 
 AI-powered contact center proof-of-concept built on Amazon Connect.
 Simulates e-commerce customer support for a fictional company "ShopFlow".
